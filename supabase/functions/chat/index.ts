@@ -1,8 +1,56 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+const GCP_PROJECT_ID = Deno.env.get('GCP_PROJECT_ID')
+const GCP_CLIENT_EMAIL = Deno.env.get('GCP_CLIENT_EMAIL')
+const GCP_PRIVATE_KEY = Deno.env.get('GCP_PRIVATE_KEY')?.replace(/\\n/g, '\n')
+
+const VERTEX_REGION = 'us-central1'
+const VERTEX_URL = `https://${VERTEX_REGION}-aiplatform.googleapis.com/v1/projects/${GCP_PROJECT_ID}/locations/${VERTEX_REGION}/publishers/google/models/gemini-2.0-flash:generateContent`
+
+function base64UrlEncode(data: string | Uint8Array): string {
+  const str = typeof data === 'string' ? data : String.fromCharCode(...data)
+  return btoa(str).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+}
+
+async function getAccessToken(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  const header = { alg: 'RS256', typ: 'JWT' }
+  const payload = {
+    iss: GCP_CLIENT_EMAIL,
+    sub: GCP_CLIENT_EMAIL,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: 'https://www.googleapis.com/auth/cloud-platform'
+  }
+
+  const encodedHeader = base64UrlEncode(JSON.stringify(header))
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload))
+  const signatureInput = `${encodedHeader}.${encodedPayload}`
+
+  const keyData = GCP_PRIVATE_KEY!
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\s/g, '')
+  const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0))
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', binaryKey, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']
+  )
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signatureInput))
+  const encodedSignature = base64UrlEncode(new Uint8Array(signature))
+
+  const jwt = `${signatureInput}.${encodedSignature}`
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
+  })
+  const tokenData = await tokenResponse.json()
+  return tokenData.access_token
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,32 +99,87 @@ Deno.serve(async (req) => {
       )
     }
 
+    const origin = req.headers.get('origin')
+    const allowedOrigins: string[] = client.allowed_origins || []
+    if (!origin || !allowedOrigins.includes(origin)) {
+      return new Response(
+        JSON.stringify({ error: 'Origin not allowed' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Message length limit
+    if (message.length > 2000) {
+      return new Response(
+        JSON.stringify({ error: 'Message too long (max 2000 characters)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Rate limiting: 30 requests per minute per IP per client
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const oneMinuteAgo = new Date(Date.now() - 60000).toISOString()
+
+    const { count: requestCount } = await supabase
+      .from('rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('ip_address', clientIp)
+      .gte('created_at', oneMinuteAgo)
+
+    if (requestCount !== null && requestCount >= 30) {
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please wait a moment.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Record this request for rate limiting
+    supabase.from('rate_limits').insert({ client_id: clientId, ip_address: clientIp }).then(() => {}).catch(console.error)
+
     const systemPrompt = buildSystemPrompt(client.site_data)
 
-    const geminiResponse = await fetch(GEMINI_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ parts: [{ text: message }] }]
-      })
-    })
-
-    if (!geminiResponse.ok) {
-      console.error('Gemini API error:', await geminiResponse.text())
+    let accessToken: string
+    try {
+      accessToken = await getAccessToken()
+      console.log('Access token obtained:', accessToken ? 'yes' : 'no')
+    } catch (tokenErr) {
+      console.error('Token error:', tokenErr)
       return new Response(
-        JSON.stringify({ error: 'AI service unavailable' }),
+        JSON.stringify({ error: 'Authentication failed', details: String(tokenErr) }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const geminiData = await geminiResponse.json()
+    console.log('Calling Vertex URL:', VERTEX_URL)
+    const vertexResponse = await fetch(VERTEX_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: message }] }]
+      })
+    })
+
+    if (!vertexResponse.ok) {
+      const errorText = await vertexResponse.text()
+      console.error('Vertex AI error:', vertexResponse.status, errorText)
+      return new Response(
+        JSON.stringify({ error: 'AI service unavailable', status: vertexResponse.status, details: errorText }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const geminiData = await vertexResponse.json()
     const reply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
       'Sorry, I could not get a response. Please try again.'
 
     supabase.from('chat_logs').insert([
-      { client_id: clientId, session_id: sessionId, role: 'user', message },
-      { client_id: clientId, session_id: sessionId, role: 'assistant', message: reply }
+      { client_id: clientId, session_id: sessionId, role: 'user', message, origin },
+      { client_id: clientId, session_id: sessionId, role: 'assistant', message: reply, origin }
     ]).then(() => {}).catch(console.error)
 
     return new Response(
