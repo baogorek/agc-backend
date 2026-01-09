@@ -1,0 +1,28 @@
+{
+  "name": "agc-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "db:push": "npx supabase db push",
+    "db:reset": "npx supabase db reset",
+    "functions:serve": "npx supabase functions serve chat --env-file .env.local",
+    "functions:deploy": "npx supabase functions deploy chat",
+    "start": "npx supabase start",
+    "stop": "npx supabase stop"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/baogorek/agc-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/baogorek/agc-backend/issues"
+  },
+  "homepage": "https://github.com/baogorek/agc-backend#readme",
+  "devDependencies": {
+    "supabase": "^2.72.1"
+  }
+}

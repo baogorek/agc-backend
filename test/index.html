@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Widget Test</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f8fafc;
+    }
+    h1 { color: #1e293b; }
+    p { color: #64748b; line-height: 1.6; }
+    .info-box {
+      background: #e0f2fe;
+      border: 1px solid #0ea5e9;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+    }
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chat Widget Test Page</h1>
+  <p>Click the blue chat bubble in the bottom-right corner to test the widget.</p>
+
+  <div class="info-box">
+    <strong>Test Client:</strong> localmobilevet<br>
+    <strong>Business:</strong> Local Mobile Veterinary Service<br>
+    <strong>Expected behavior:</strong> AI should answer questions about vet services, staff, hours, and service area.
+  </div>
+
+  <h2>Sample Questions to Test</h2>
+  <ul>
+    <li>What services do you offer?</li>
+    <li>Who are your veterinarians?</li>
+    <li>What are your hours?</li>
+    <li>Do you serve Durham?</li>
+    <li>How do I book an appointment?</li>
+  </ul>
+
+  <h2>Embed Code</h2>
+  <p>To embed on any website:</p>
+  <pre><code>&lt;script
+  src="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/chat-widget.js"
+  data-client-id="localmobilevet"&gt;
+&lt;/script&gt;</code></pre>
+
+  <!-- Widget script - uses local file for testing -->
+  <script src="../widget/chat-widget.js" data-client-id="localmobilevet"></script>
+</body>
+</html>
