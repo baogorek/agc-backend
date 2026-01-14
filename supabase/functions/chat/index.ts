@@ -1,3 +1,4 @@
+// NOTE: buildSystemPrompt must stay in sync with dev-studio/server/prompt-builder.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -5,8 +6,7 @@ const GCP_PROJECT_ID = Deno.env.get('GCP_PROJECT_ID')
 const GCP_CLIENT_EMAIL = Deno.env.get('GCP_CLIENT_EMAIL')
 const GCP_PRIVATE_KEY = Deno.env.get('GCP_PRIVATE_KEY')?.replace(/\\n/g, '\n')
 
-const VERTEX_REGION = 'us-central1'
-const VERTEX_URL = `https://${VERTEX_REGION}-aiplatform.googleapis.com/v1/projects/${GCP_PROJECT_ID}/locations/${VERTEX_REGION}/publishers/google/models/gemini-2.0-flash:generateContent`
+const VERTEX_URL = `https://aiplatform.googleapis.com/v1/projects/${GCP_PROJECT_ID}/locations/global/publishers/google/models/gemini-3-flash-preview:generateContent`
 
 function base64UrlEncode(data: string | Uint8Array): string {
   const str = typeof data === 'string' ? data : String.fromCharCode(...data)
