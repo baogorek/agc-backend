@@ -110,6 +110,104 @@ ORDER BY created_at DESC;
 ## Environment Variables
 
 Edge Function uses these (set via `npx supabase secrets set`):
-- `GEMINI_API_KEY` - Google Gemini API key
+- `GCP_PROJECT_ID` - GCP project identifier
+- `GCP_CLIENT_EMAIL` - Service account email
+- `GCP_PRIVATE_KEY` - Service account private key
 - `SUPABASE_URL` - Auto-provided
 - `SUPABASE_SERVICE_ROLE_KEY` - Auto-provided
+
+## Widget Customization
+
+Per-client customization via data attributes on the embed script tag:
+
+| Attribute | Required | Description |
+|-----------|----------|-------------|
+| `data-client-id` | Yes | Client slug matching `clients.id` in the database |
+| `data-bubble-image` | No | URL to a custom bubble image (replaces default chat icon) |
+| `data-brand-color` | No | Hex color for accents — user messages, send button, links (default: `#2563eb`) |
+| `data-greeting` | No | Custom greeting shown on first open and in the speech bubble (default: time-based greeting) |
+
+Example embed code with all options:
+```html
+<script src="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/chat-widget.js"
+  data-client-id="localmobilevet"
+  data-bubble-image="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/savannah-the-dog.jpg"
+  data-brand-color="#009345"
+  data-greeting="Hi, I'm Savannah, your canine assistant! What questions do you have for our mobile vet team?">
+</script>
+```
+
+## Staging Environment
+
+Staging Supabase project: `agc-staging` (ref: `wbgdpxogtpqijkqyaeke`, East US Ohio)
+
+### Developing a widget feature in staging
+
+1. **Edit `widget/chat-widget-staging.js`** — this file points at the staging Supabase URL. Production's `widget/chat-widget.js` is never touched.
+
+2. **Test locally** — serve the repo root and open the test page:
+   ```bash
+   python3 -m http.server 8080
+   # open http://localhost:8080/test/staging-test.html
+   ```
+   The test page loads the staging widget from localhost and talks to the staging edge function. Edit `test/staging-test.html` to configure `data-` attributes.
+
+3. **Upload staging widget to staging storage** (only needed if testing via the hosted URL rather than localhost):
+   ```bash
+   curl -X PUT "https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/widget/chat-widget.js" \
+     -H "Authorization: Bearer STAGING_SERVICE_ROLE_KEY" \
+     -H "Content-Type: application/javascript" \
+     --data-binary @widget/chat-widget-staging.js
+   ```
+
+4. **Upload assets** (images, etc.) to staging storage:
+   ```bash
+   curl -X POST "https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/widget/FILENAME" \
+     -H "Authorization: Bearer STAGING_SERVICE_ROLE_KEY" \
+     -H "Content-Type: image/jpeg" \
+     --data-binary @path/to/file
+   ```
+
+5. **Deploy edge function changes to staging:**
+   ```bash
+   npx supabase link --project-ref wbgdpxogtpqijkqyaeke
+   npx supabase functions deploy chat --no-verify-jwt
+   ```
+
+6. **Staging allowed origins** include `localhost:3000`, `localhost:5173`, and `localhost:8080` for local testing.
+
+### Promoting staging to production
+
+Once validated in staging:
+
+1. **Port widget changes** — copy the staging widget and swap the Supabase URL:
+   ```bash
+   cp widget/chat-widget-staging.js widget/chat-widget.js
+   sed -i 's|wbgdpxogtpqijkqyaeke|rukppthsduuvsfjynfmw|' widget/chat-widget.js
+   ```
+
+2. **Upload production widget:**
+   ```bash
+   curl -X PUT "https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/widget/chat-widget.js" \
+     -H "Authorization: Bearer PROD_SERVICE_ROLE_KEY" \
+     -H "Content-Type: application/javascript" \
+     --data-binary @widget/chat-widget.js
+   ```
+
+3. **Upload any new assets** to production storage (same curl pattern, production URL).
+
+4. **Deploy edge function changes to production:**
+   ```bash
+   npx supabase link --project-ref rukppthsduuvsfjynfmw
+   npx supabase functions deploy chat --no-verify-jwt
+   ```
+
+5. **Push database migrations** (if any):
+   ```bash
+   npx supabase db push
+   ```
+
+6. **Re-link CLI back to staging** when done:
+   ```bash
+   npx supabase link --project-ref wbgdpxogtpqijkqyaeke
+   ```
