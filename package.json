@@ -7,7 +7,9 @@
     "db:push": "npx supabase db push",
     "db:reset": "npx supabase db reset",
     "functions:serve": "npx supabase functions serve chat --env-file .env.local",
-    "functions:deploy": "npx supabase functions deploy chat",
+    "functions:deploy": "npx supabase functions deploy chat --no-verify-jwt",
+    "functions:deploy:prod": "npx supabase functions deploy chat --no-verify-jwt --project-ref rukppthsduuvsfjynfmw",
+    "db:push:prod": "npx supabase db push --project-ref rukppthsduuvsfjynfmw",
     "start": "npx supabase start",
     "stop": "npx supabase stop"
   },

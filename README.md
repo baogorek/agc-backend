@@ -23,13 +23,17 @@ Supabase Edge Function POST /chat
 ```
 agc-backend/
   supabase/
-    migrations/     # Database schema
-    functions/chat/ # Edge Function
-    seed.sql        # Test data
+    migrations/                # Database schema
+    functions/chat/            # Edge Function
+    seed.sql                   # Test data
   widget/
-    chat-widget.js  # Embeddable widget
+    chat-widget.js             # Production widget
+    chat-widget-staging.js     # Staging widget (points at staging Supabase URL)
+  assets/
+    clients/<clientslug>/      # Bubble images and other per-client assets
   test/
-    index.html      # Local test page
+    index.html                 # Local test page (production widget)
+    staging-test.html          # Local test page (staging widget)
 ```
 
 ## Local Development
@@ -43,9 +47,11 @@ npm run functions:serve    # Serve Edge Function locally
 
 ## Deployment
 
+> **Safety note:** The Supabase CLI should always stay linked to **staging**. The bare `npm run` commands below deploy to staging. See [Promoting staging to production](#promoting-staging-to-production) for production deploys.
+
 ```bash
-npm run db:push            # Push migrations to production
-npm run functions:deploy   # Deploy Edge Function
+npm run db:push            # Push migrations to staging
+npm run functions:deploy   # Deploy Edge Function to staging
 ```
 
 ## Adding a New Client
@@ -54,7 +60,7 @@ npm run functions:deploy   # Deploy Edge Function
 Scrape or collect: services, staff, hours, contact info, website pages.
 
 ### 2. Insert into database
-Go to [Supabase SQL Editor](https://supabase.com/dashboard/project/rukppthsduuvsfjynfmw/sql) and run:
+Go to the Supabase SQL Editor ([production](https://supabase.com/dashboard/project/rukppthsduuvsfjynfmw/sql) or [staging](https://supabase.com/dashboard/project/wbgdpxogtpqijkqyaeke/sql)) and run:
 
 ```sql
 INSERT INTO clients (id, name, phone, email, site_data, plan_type) VALUES (
@@ -97,25 +103,6 @@ INSERT INTO clients (id, name, phone, email, site_data, plan_type) VALUES (
 
 They paste this before `</body>` on their site.
 
-## Viewing Chat Logs
-
-Query the `chat_logs` table to see conversations:
-
-```sql
-SELECT * FROM chat_logs
-WHERE client_id = 'clientslug'
-ORDER BY created_at DESC;
-```
-
-## Environment Variables
-
-Edge Function uses these (set via `npx supabase secrets set`):
-- `GCP_PROJECT_ID` - GCP project identifier
-- `GCP_CLIENT_EMAIL` - Service account email
-- `GCP_PRIVATE_KEY` - Service account private key
-- `SUPABASE_URL` - Auto-provided
-- `SUPABASE_SERVICE_ROLE_KEY` - Auto-provided
-
 ## Widget Customization
 
 Per-client customization via data attributes on the embed script tag:
@@ -136,6 +123,25 @@ Example embed code with all options:
   data-greeting="Hi, I'm Savannah, your canine assistant! What questions do you have for our mobile vet team?">
 </script>
 ```
+
+## Viewing Chat Logs
+
+Query the `chat_logs` table to see conversations:
+
+```sql
+SELECT * FROM chat_logs
+WHERE client_id = 'clientslug'
+ORDER BY created_at DESC;
+```
+
+## Environment Variables
+
+Edge Function uses these (set via `npx supabase secrets set`):
+- `GCP_PROJECT_ID` - GCP project identifier
+- `GCP_CLIENT_EMAIL` - Service account email
+- `GCP_PRIVATE_KEY` - Service account private key
+- `SUPABASE_URL` - Auto-provided
+- `SUPABASE_SERVICE_ROLE_KEY` - Auto-provided
 
 ## Staging Environment
 
@@ -170,13 +176,14 @@ Staging Supabase project: `agc-staging` (ref: `wbgdpxogtpqijkqyaeke`, East US Oh
 
 5. **Deploy edge function changes to staging:**
    ```bash
-   npx supabase link --project-ref wbgdpxogtpqijkqyaeke
-   npx supabase functions deploy chat --no-verify-jwt
+   npm run functions:deploy
    ```
 
 6. **Staging allowed origins** include `localhost:3000`, `localhost:5173`, and `localhost:8080` for local testing.
 
 ### Promoting staging to production
+
+> **Safety note:** The Supabase CLI should always stay linked to **staging**. Production deploys use dedicated npm scripts that pass `--project-ref` explicitly, so you never need to re-link.
 
 Once validated in staging:
 
@@ -198,16 +205,10 @@ Once validated in staging:
 
 4. **Deploy edge function changes to production:**
    ```bash
-   npx supabase link --project-ref rukppthsduuvsfjynfmw
-   npx supabase functions deploy chat --no-verify-jwt
+   npm run functions:deploy:prod
    ```
 
 5. **Push database migrations** (if any):
    ```bash
-   npx supabase db push
-   ```
-
-6. **Re-link CLI back to staging** when done:
-   ```bash
-   npx supabase link --project-ref wbgdpxogtpqijkqyaeke
+   npm run db:push:prod
    ```
