@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { clientId, message, sessionId } = await req.json()
+    const { clientId, widgetId, message, sessionId, history, persona } = await req.json()
 
     if (!clientId || !message || !sessionId) {
       return new Response(
@@ -79,6 +79,12 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    // Build conversation contents from history (Gemini uses 'model' for assistant)
+    const contents = (history || []).map((msg: { role: string; content: string }) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }))
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -137,7 +143,10 @@ Deno.serve(async (req) => {
     // Record this request for rate limiting
     supabase.from('rate_limits').insert({ client_id: clientId, ip_address: clientIp }).then(() => {}).catch(console.error)
 
-    const systemPrompt = buildSystemPrompt(client.site_data)
+    let systemPrompt = buildSystemPrompt(client.site_data)
+    if (persona) {
+      systemPrompt = persona + '\n\n' + systemPrompt
+    }
 
     let accessToken: string
     try {
@@ -160,7 +169,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: message }] }]
+        contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: message }] }]
       })
     })
 
@@ -178,8 +187,8 @@ Deno.serve(async (req) => {
       'Sorry, I could not get a response. Please try again.'
 
     supabase.from('chat_logs').insert([
-      { client_id: clientId, session_id: sessionId, role: 'user', message, origin },
-      { client_id: clientId, session_id: sessionId, role: 'assistant', message: reply, origin }
+      { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'user', message, origin },
+      { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'assistant', message: reply, origin }
     ]).then(() => {}).catch(console.error)
 
     return new Response(
@@ -197,7 +206,7 @@ Deno.serve(async (req) => {
 })
 
 function buildSystemPrompt(siteData: any): string {
-  const { business, pages, services, staff, faqs, appointmentInfo } = siteData
+  const { business, pages, services, staff, faqs, appointmentInfo, callToAction, emergencyAction } = siteData
 
   let prompt = `You are a friendly, casual assistant for ${business.name}. ${business.description}
 
@@ -206,6 +215,8 @@ TONE & STYLE:
 - Keep responses SHORT - 1-2 sentences max unless they ask for details
 - Use casual language ("Yeah!", "Sure thing!", "Happy to help!")
 - Include a relevant link when it makes sense
+- Keep the conversation going - ask follow-up questions, show interest
+- When sharing a link, invite them to come back and chat more afterward
 
 BUSINESS INFO:
 - Phone: ${business.phone}
@@ -248,6 +259,47 @@ WEBSITE PAGES:\n`
     faqs.forEach((f: any) => {
       prompt += `Q: ${f.question}\nA: ${f.answer}\n\n`
     })
+  }
+
+  if (emergencyAction) {
+    // Support new structured format with emergencyFacilities array
+    if (emergencyAction.emergencyFacilities && emergencyAction.severityLevels) {
+      const { triageGuidance, severityLevels, emergencyFacilities } = emergencyAction
+      const { critical, moderate, minor } = severityLevels
+
+      prompt += `\nEMERGENCY TRIAGE (HIGHEST PRIORITY):
+${triageGuidance || 'Use your knowledge to assess the severity of the situation.'}
+
+SEVERITY LEVELS:
+- CRITICAL: ${critical.description}. Examples: ${critical.examples.join(', ')}. Action: ${critical.instruction}
+- MODERATE: ${moderate.description}. Examples: ${moderate.examples.join(', ')}. Action: ${moderate.instruction}
+- MINOR: ${minor.description}. Examples: ${minor.examples.join(', ')}. Action: ${minor.instruction}
+
+EMERGENCY FACILITIES (USE ONLY THESE - DO NOT MAKE UP ADDRESSES OR PHONE NUMBERS):
+${emergencyFacilities.map((f: any) => `- ${f.name} (${f.location}): ${f.phone}, ${f.address}, Hours: ${f.hours}`).join('\n')}
+
+IMPORTANT: When referring to emergency facilities, you MUST use ONLY the exact names, phone numbers, and addresses listed above. Never invent or guess facility information. If asked about a location not covered, say you don't have specific facility information for that area.
+- Take emergencies seriously but stay calm and reassuring
+- After directing them to emergency care, invite them to chat again once their pet is stable\n`
+    } else {
+      // Legacy format support
+      prompt += `\nEMERGENCY TRIAGE (HIGHEST PRIORITY):
+${emergencyAction.triggers}
+If you detect an emergency: ${emergencyAction.message}
+Referral: ${emergencyAction.referral}
+- Take emergencies seriously but stay calm and reassuring
+- After directing them to emergency care, invite them to chat again once their pet is stable\n`
+    }
+  }
+
+  if (callToAction) {
+    prompt += `\nCALL TO ACTION (for non-emergencies):
+When the conversation naturally concludes, the user seems satisfied, says goodbye, or their question has been fully answered, gently suggest they ${callToAction.text}: ${callToAction.url}
+${callToAction.context ? callToAction.context : ''}
+- Don't force it into every response
+- Make it feel like a natural next step, not a sales pitch
+- Only mention it once per conversation when appropriate
+- After sharing the link, invite them to come back if they have more questions\n`
   }
 
   return prompt

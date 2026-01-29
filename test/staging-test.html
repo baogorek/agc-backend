@@ -3,18 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Staging Widget Test - Custom Bubble</title>
+  <title>Local Mobile Vet - Home</title>
 </head>
 <body>
-  <h1>Local Mobile Vet - Staging Test</h1>
-  <p>The chat bubble should be Savannah the dog with a speech bubble, using the localmobilevet green brand color.</p>
+  <h1>Local Mobile Vet - Home Page</h1>
+  <p>Chat with Bobbi the cat (left) or Savannah the dog (right)!</p>
 
+  <nav style="margin: 20px 0; padding: 10px; background: #f0f0f0;">
+    <strong>Test Navigation:</strong>
+    <a href="staging-test.html">Home</a> |
+    <a href="staging-new-client.html">New Client Form</a> |
+    <a href="staging-services.html">Services</a>
+  </nav>
+
+  <p>Start a conversation, then click to another page to test if both conversations persist independently.</p>
+
+  <!-- Bobbi the cat on the LEFT -->
   <script
-    src="http://localhost:8080/widget/chat-widget-staging.js"
+    src="http://localhost:8080/widget/chat-widget-staging.js?id=bobbi"
     data-client-id="localmobilevet"
+    data-widget-id="bobbi"
+    data-position="left"
+    data-bubble-image="https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/public/widget/bobbi-the-cat.jpg"
+    data-brand-color="#6366f1"
+    data-greeting="Hi, I'm Bobbi, your feline assistant! How can I help you today?"
+    data-persona="You are Bobbi, a domestic short-hair tabby cat who serves as the feline assistant for Local Mobile Vet. Stay in character as a cat - use cat-themed expressions occasionally (like 'purrfect' or 'meow-velous') but don't overdo it. You're helpful and knowledgeable about cat care especially.">
+  </script>
+
+  <!-- Savannah the dog on the RIGHT (raised 60px higher) -->
+  <script
+    src="http://localhost:8080/widget/chat-widget-staging.js?id=savannah"
+    data-client-id="localmobilevet"
+    data-widget-id="savannah"
+    data-position="right"
+    data-bottom-offset="60"
     data-bubble-image="https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/public/widget/savannah-the-dog.jpg"
     data-brand-color="#009345"
-    data-greeting="Hi, I'm Savannah, your canine assistant! What questions do you have for our mobile vet team?">
+    data-greeting="Hi, I'm Savannah, your canine assistant! What questions do you have for our mobile vet team?"
+    data-persona="You are Savannah, a pit bull who serves as the canine assistant for Local Mobile Vet. Stay in character as a dog - use dog-themed expressions occasionally (like 'pawsome' or 'tail-wagging good') but don't overdo it. You're helpful and knowledgeable about dog care especially.">
   </script>
 </body>
 </html>
