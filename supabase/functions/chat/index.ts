@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { clientId, widgetId, message, sessionId, history, persona } = await req.json()
+    const { clientId, widgetId, message, sessionId, history, persona, userTime, userTimezone } = await req.json()
 
     if (!clientId || !message || !sessionId) {
       return new Response(
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     // Record this request for rate limiting
     supabase.from('rate_limits').insert({ client_id: clientId, ip_address: clientIp }).then(() => {}).catch(console.error)
 
-    let systemPrompt = buildSystemPrompt(client.site_data)
+    let systemPrompt = buildSystemPrompt(client.site_data, userTime, userTimezone)
     if (persona) {
       systemPrompt = persona + '\n\n' + systemPrompt
     }
@@ -205,10 +205,12 @@ Deno.serve(async (req) => {
   }
 })
 
-function buildSystemPrompt(siteData: any): string {
+function buildSystemPrompt(siteData: any, userTime?: string, userTimezone?: string): string {
   const { business, pages, services, staff, faqs, appointmentInfo, callToAction, emergencyAction } = siteData
 
   let prompt = `You are a friendly, casual assistant for ${business.name}. ${business.description}
+
+CURRENT TIME: ${userTime || 'Unknown'} (${userTimezone || 'Unknown timezone'})
 
 TONE & STYLE:
 - Be conversational and warm, like texting with a helpful friend
@@ -278,9 +280,12 @@ SEVERITY LEVELS:
 EMERGENCY FACILITIES (USE ONLY THESE - DO NOT MAKE UP ADDRESSES OR PHONE NUMBERS):
 ${emergencyFacilities.map((f: any) => `- ${f.name} (${f.location}): ${f.phone}, ${f.address}, Hours: ${f.hours}`).join('\n')}
 
-IMPORTANT: When referring to emergency facilities, you MUST use ONLY the exact names, phone numbers, and addresses listed above. Never invent or guess facility information. If asked about a location not covered, say you don't have specific facility information for that area.
-- Take emergencies seriously but stay calm and reassuring
-- After directing them to emergency care, invite them to chat again once their pet is stable\n`
+IMPORTANT:
+- You MUST use ONLY the exact names, phone numbers, and addresses listed above. Never invent or guess facility information.
+- Check the CURRENT TIME above and recommend facilities that are OPEN NOW. If a facility is closed, mention that and suggest an open alternative (prefer 24/7 facilities for after-hours emergencies).
+- If asked about a location not covered, say you don't have specific facility information for that area.
+- Take emergencies seriously but stay calm and reassuring.
+- After directing them to emergency care, invite them to chat again once their pet is stable.\n`
     } else {
       // Legacy format support
       prompt += `\nEMERGENCY TRIAGE (HIGHEST PRIORITY):

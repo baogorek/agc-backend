@@ -57,6 +57,7 @@
   let conversationHistory = [];
   let isOpen = false;
   let speechAutoHidden = false;
+  let isWaitingForResponse = false;
 
   function saveState() {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -512,17 +513,25 @@
     const input = document.getElementById(ID.input);
     const sendBtn = document.getElementById(ID.send);
     const text = input.value.trim();
-    if (!text) return;
+    if (!text || isWaitingForResponse) return;
 
+    isWaitingForResponse = true;
     addMessage(text, 'user');
     conversationHistory.push({ role: 'user', content: text });
     saveState();
     input.value = '';
+    input.disabled = true;
     sendBtn.disabled = true;
 
     const loadingMsg = addLoadingIndicator();
 
     try {
+      // Get user's local time and timezone for time-aware responses
+      const now = new Date();
+      const userTime = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      const userDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
       const response = await fetch(FUNCTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -532,7 +541,9 @@
           message: text,
           sessionId: SESSION_ID,
           history: conversationHistory,
-          persona: PERSONA
+          persona: PERSONA,
+          userTime: `${userDay} ${userTime}`,
+          userTimezone: userTimezone
         })
       });
 
@@ -553,6 +564,8 @@
       addMessage('Unable to connect. Please check your internet and try again.', 'bot');
       console.error('Chat widget error:', err);
     } finally {
+      isWaitingForResponse = false;
+      input.disabled = false;
       sendBtn.disabled = false;
       input.focus();
     }
