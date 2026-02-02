@@ -27,13 +27,12 @@ agc-backend/
     functions/chat/            # Edge Function
     seed.sql                   # Test data
   widget/
-    chat-widget.js             # Production widget
-    chat-widget-staging.js     # Staging widget (points at staging Supabase URL)
+    chat-widget.js             # Widget source (staging URL, swapped to prod on deploy)
   assets/
     clients/<clientslug>/      # Bubble images and other per-client assets
   test/
-    index.html                 # Local test page (production widget)
-    staging-test.html          # Local test page (staging widget)
+    index.html                 # Local test page
+    staging-test.html          # Multi-page test (home, services, new client)
 ```
 
 ## Local Development
@@ -147,68 +146,61 @@ Edge Function uses these (set via `npx supabase secrets set`):
 
 Staging Supabase project: `agc-staging` (ref: `wbgdpxogtpqijkqyaeke`, East US Ohio)
 
-### Developing a widget feature in staging
+### Widget Development Workflow
 
-1. **Edit `widget/chat-widget-staging.js`** — this file points at the staging Supabase URL. Production's `widget/chat-widget.js` is never touched.
+The source file `widget/chat-widget.js` always contains the **staging** Supabase URL. This is a safety measure — if you forget to do anything special, you're testing against staging (not production).
 
-2. **Test locally** — serve the repo root and open the test page:
+1. **Edit `widget/chat-widget.js`** — this is the only widget file
+
+2. **Test locally:**
    ```bash
    python3 -m http.server 8080
-   # open http://localhost:8080/test/staging-test.html
+   # open http://localhost:8080/test/index.html
    ```
-   The test page loads the staging widget from localhost and talks to the staging edge function. Edit `test/staging-test.html` to configure `data-` attributes.
+   The test pages load the local widget file. Since `localhost:8080` is in staging's `allowed_origins`, chat responses work.
 
-3. **Upload staging widget to staging storage** (only needed if testing via the hosted URL rather than localhost):
+3. **Test on mobile (visual only):**
    ```bash
-   curl -X PUT "https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/widget/chat-widget.js" \
-     -H "Authorization: Bearer STAGING_SERVICE_ROLE_KEY" \
-     -H "Content-Type: application/javascript" \
-     --data-binary @widget/chat-widget-staging.js
+   ngrok http 8080
+   # open https://<ngrok-url>/test/staging-mobile-test.html on phone
    ```
+   Chat responses won't work (ngrok origin not allowed), but you can test UI/UX.
 
-4. **Upload assets** (images, etc.) to staging storage:
+4. **Deploy to staging storage** (optional, for testing hosted widget):
    ```bash
-   curl -X POST "https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/widget/FILENAME" \
-     -H "Authorization: Bearer STAGING_SERVICE_ROLE_KEY" \
-     -H "Content-Type: image/jpeg" \
-     --data-binary @path/to/file
+   npm run widget:deploy
    ```
 
-5. **Deploy edge function changes to staging:**
+5. **Deploy to production** (after testing):
    ```bash
-   npm run functions:deploy
+   npm run widget:deploy:prod
    ```
+   This automatically swaps the staging URL → production URL during upload.
 
-6. **Staging allowed origins** include `localhost:3000`, `localhost:5173`, and `localhost:8080` for local testing.
+### Staging allowed origins
 
-### Promoting staging to production
+These origins can make chat requests to staging:
+- `http://localhost:3000`
+- `http://localhost:5173`
+- `http://localhost:8080`
+
+### Promoting to Production
 
 > **Safety note:** The Supabase CLI should always stay linked to **staging**. Production deploys use dedicated npm scripts that pass `--project-ref` explicitly, so you never need to re-link.
 
-Once validated in staging:
+1. **Test locally** at `http://localhost:8080/test/index.html`
 
-1. **Port widget changes** — copy the staging widget and swap the Supabase URL:
+2. **Deploy widget to production:**
    ```bash
-   cp widget/chat-widget-staging.js widget/chat-widget.js
-   sed -i 's|wbgdpxogtpqijkqyaeke|rukppthsduuvsfjynfmw|' widget/chat-widget.js
+   npm run widget:deploy:prod
    ```
 
-2. **Upload production widget:**
-   ```bash
-   curl -X PUT "https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/widget/chat-widget.js" \
-     -H "Authorization: Bearer PROD_SERVICE_ROLE_KEY" \
-     -H "Content-Type: application/javascript" \
-     --data-binary @widget/chat-widget.js
-   ```
-
-3. **Upload any new assets** to production storage (same curl pattern, production URL).
-
-4. **Deploy edge function changes to production:**
+3. **Deploy edge function changes** (if any):
    ```bash
    npm run functions:deploy:prod
    ```
 
-5. **Push database migrations** (if any):
+4. **Push database migrations** (if any):
    ```bash
    npm run db:push:prod
    ```

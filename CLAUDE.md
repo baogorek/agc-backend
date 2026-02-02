@@ -41,6 +41,17 @@ npx supabase <command>
 npx supabase functions deploy chat --no-verify-jwt
 ```
 
+## Widget Deployment
+```bash
+# Deploy to staging
+npm run widget:deploy
+
+# Deploy to production (auto-swaps URL)
+npm run widget:deploy:prod
+```
+
+The source file `widget/chat-widget.js` always has the staging URL. Production deploy swaps it automatically.
+
 ## Vertex AI Request Format
 ```typescript
 contents: [{ role: 'user', parts: [{ text: message }] }]
@@ -65,3 +76,25 @@ Credentials stored as Supabase secrets: `GCP_PROJECT_ID`, `GCP_CLIENT_EMAIL`, `G
 | `data-bubble-image` | No | Custom bubble image URL |
 | `data-brand-color` | No | Hex accent color (default: `#2563eb`) |
 | `data-greeting` | No | Custom greeting message |
+
+## Mobile Testing with ngrok
+
+ngrok creates a public URL that tunnels to your local machine, letting you test local code changes on your phone.
+
+### Setup (one-time)
+```bash
+sudo snap install ngrok
+# Sign up at https://ngrok.com and get your auth token
+ngrok config add-authtoken YOUR_TOKEN
+```
+
+### Testing workflow
+```bash
+# Terminal 1: serve files locally
+cd ~/devl/agc-backend && python3 -m http.server 8080
+
+# Terminal 2: expose to internet
+ngrok http 8080
+```
+
+Open `https://<ngrok-url>/test/index.html` on your phone. The test page loads the widget from local `../widget/chat-widget.js`, so changes are reflected immediately on refresh.

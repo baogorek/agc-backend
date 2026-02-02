@@ -11,7 +11,9 @@
     "functions:deploy:prod": "npx supabase functions deploy chat --no-verify-jwt --project-ref rukppthsduuvsfjynfmw",
     "db:push:prod": "npx supabase db push --project-ref rukppthsduuvsfjynfmw",
     "start": "npx supabase start",
-    "stop": "npx supabase stop"
+    "stop": "npx supabase stop",
+    "widget:deploy": "echo y | npx supabase storage rm ss:///widget/chat-widget.js --experimental --recursive ; npx supabase storage cp widget/chat-widget.js ss:///widget/chat-widget.js --experimental",
+    "widget:deploy:prod": "sed 's/wbgdpxogtpqijkqyaeke/rukppthsduuvsfjynfmw/g' widget/chat-widget.js > /tmp/chat-widget-prod.js && npx supabase link --project-ref rukppthsduuvsfjynfmw && echo y | npx supabase storage rm ss:///widget/chat-widget.js --experimental --recursive && npx supabase storage cp /tmp/chat-widget-prod.js ss:///widget/chat-widget.js --experimental && npx supabase link --project-ref wbgdpxogtpqijkqyaeke"
   },
   "repository": {
     "type": "git",

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dark Background Widget Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: white;
+    }
+    .hero {
+      height: 100vh;
+      background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
+                  url('https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200') center/cover;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px;
+    }
+    h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    .cta {
+      background: #009345;
+      color: white;
+      padding: 15px 30px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .info {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+      padding: 15px;
+      border-radius: 8px;
+      max-width: 300px;
+      font-size: 14px;
+      z-index: 10000;
+    }
+    .info strong { display: block; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="info">
+    <strong>Testing bubble visibility on dark backgrounds</strong>
+    Look at the chat bubble in the bottom-right corner. The white ring should make it stand out from the dark background.
+  </div>
+
+  <div class="hero">
+    <h1>Mobile Vet<br>Care for Life</h1>
+    <button class="cta">(919) 219-4919</button>
+  </div>
+
+  <!-- Savannah (right side) -->
+  <script src="../widget/chat-widget.js"
+    data-client-id="localmobilevet"
+    data-widget-id="default"
+    data-bubble-image="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/savannah-the-dog.jpg"
+    data-brand-color="#009345"
+    data-greeting="Hi, I'm Savannah, your canine assistant! What questions do you have for our mobile vet team?"
+    data-position="right"></script>
+
+  <!-- Bobbi (left side) -->
+  <script src="../widget/chat-widget.js"
+    data-client-id="localmobilevet"
+    data-widget-id="bobbi"
+    data-bubble-image="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/bobbi-the-cat.jpg"
+    data-brand-color="#6366f1"
+    data-greeting="Hi, I'm Bobbi, your feline assistant! How can I help you today?"
+    data-position="left"></script>
+</body>
+</html>

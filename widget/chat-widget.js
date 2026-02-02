@@ -2,15 +2,26 @@
   const scriptTag = document.currentScript;
   const CLIENT_ID = scriptTag.getAttribute('data-client-id');
   const WIDGET_ID = scriptTag.getAttribute('data-widget-id') || 'default';
-  const POSITION = scriptTag.getAttribute('data-position') || 'right';
-  const BUBBLE_IMAGE = scriptTag.getAttribute('data-bubble-image');
-  const BRAND_COLOR = scriptTag.getAttribute('data-brand-color') || '#2563eb';
-  const GREETING = scriptTag.getAttribute('data-greeting');
-  const BOTTOM_OFFSET = parseInt(scriptTag.getAttribute('data-bottom-offset')) || 0;
-  const H_MARGIN = parseInt(scriptTag.getAttribute('data-horizontal-margin')) || 40;
-  const PERSONA = scriptTag.getAttribute('data-persona');
-  const SUPABASE_URL = 'https://rukppthsduuvsfjynfmw.supabase.co';
+  const SUPABASE_URL = 'https://wbgdpxogtpqijkqyaeke.supabase.co';
   const CONVERSATION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+  // Data attributes can override server config
+  const ATTR_POSITION = scriptTag.getAttribute('data-position');
+  const ATTR_BUBBLE_IMAGE = scriptTag.getAttribute('data-bubble-image');
+  const ATTR_BRAND_COLOR = scriptTag.getAttribute('data-brand-color');
+  const ATTR_GREETING = scriptTag.getAttribute('data-greeting');
+  const ATTR_BOTTOM_OFFSET = scriptTag.getAttribute('data-bottom-offset');
+  const ATTR_H_MARGIN = scriptTag.getAttribute('data-horizontal-margin');
+  const ATTR_PERSONA = scriptTag.getAttribute('data-persona');
+
+  // Config values (populated from server, then overridden by data attributes)
+  let POSITION = 'right';
+  let BUBBLE_IMAGE = null;
+  let BRAND_COLOR = '#2563eb';
+  let GREETING = null;
+  let BOTTOM_OFFSET = 0;
+  let H_MARGIN = 40;
+  let PERSONA = null;
 
   function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -46,6 +57,7 @@
   let conversationHistory = [];
   let isOpen = false;
   let speechAutoHidden = false;
+  let isWaitingForResponse = false;
 
   function saveState() {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -119,12 +131,13 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       z-index: 9999;
       transition: transform 0.2s;
+      touch-action: manipulation;
     }
     #${ID.bubble}.has-image {
       width: 80px;
       height: 80px;
       background: none;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      box-shadow: 0 0 0 3px white, 0 4px 16px rgba(0,0,0,0.35);
       border: 3px solid ${BRAND_COLOR};
     }
     #${ID.bubble}:hover { transform: scale(1.05); }
@@ -135,12 +148,12 @@
       position: fixed;
       bottom: ${speechBottom}px;
       ${hPos}
-      background: ${speechBgColor};
+      background: white;
       color: #1e293b;
       padding: 10px 16px;
       border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25);
-      border: 1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+      border: 2px solid ${BRAND_COLOR};
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 14px;
       font-weight: 500;
@@ -148,17 +161,30 @@
       cursor: pointer;
       max-width: 240px;
       transition: opacity 0.3s, visibility 0.3s;
+      touch-action: manipulation;
     }
     #${ID.speech}::after {
       content: '';
       position: absolute;
-      bottom: -8px;
+      bottom: -10px;
       ${speechArrow}
       width: 0;
       height: 0;
       border-left: 8px solid transparent;
       border-right: 8px solid transparent;
-      border-top: 8px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15);
+      border-top: 8px solid ${BRAND_COLOR};
+    }
+    #${ID.speech}::before {
+      content: '';
+      position: absolute;
+      bottom: -7px;
+      ${speechArrow}
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid white;
+      z-index: 1;
     }
     #${ID.speech}.hidden { display: none; }
     #${ID.speech}.auto-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -168,7 +194,7 @@
       bottom: ${windowBottom}px;
       ${hPosWindow}
       width: 380px;
-      height: 500px;
+      height: min(500px, calc(100vh - ${windowBottom}px - 70px));
       background: white;
       border-radius: 16px;
       box-shadow: 0 4px 24px rgba(0,0,0,0.2);
@@ -193,40 +219,40 @@
     #${ID.window}.open { display: flex; }
 
     #${ID.close} {
-      position: absolute;
-      top: 8px;
-      right: 12px;
       background: none;
       border: none;
       color: #94a3b8;
-      font-size: 20px;
+      font-size: 24px;
       cursor: pointer;
-      padding: 4px;
+      padding: 4px 8px;
       line-height: 1;
-      z-index: 1;
     }
     #${ID.close}:hover { color: #475569; }
 
     #${ID.newChat} {
-      position: absolute;
-      top: 10px;
-      left: 12px;
-      background: rgba(255,255,255,0.95);
-      border: none;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
       color: #64748b;
-      font-size: 11px;
+      font-size: 12px;
       cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 4px;
-      z-index: 10;
+      padding: 6px 12px;
+      border-radius: 6px;
     }
-    #${ID.newChat}:hover { color: #1e293b; background: #f1f5f9; }
+    #${ID.newChat}:hover { color: #1e293b; background: #e2e8f0; }
+
+    #${ID.window} .chat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      background: white;
+    }
 
     #${ID.messages} {
       flex: 1;
       overflow-y: auto;
       padding: 16px;
-      padding-top: 36px;
     }
 
     #${ID.window} .chat-message {
@@ -303,22 +329,121 @@
     #${ID.send}:hover { background: ${BRAND_COLOR}; filter: brightness(0.9); }
     #${ID.send}:disabled { background: #94a3b8; cursor: not-allowed; filter: none; }
 
-    @media (max-width: 480px) {
+    @media (max-width: 430px) {
+      #${ID.bubble}.has-image {
+        width: 60px;
+        height: 60px;
+      }
+      #${ID.speech} {
+        display: none;
+      }
+      #${ID.bubble}.chat-open {
+        display: none;
+      }
       #${ID.window} {
-        width: calc(100vw - 20px);
-        height: calc(100vh - 120px);
-        ${posLeft ? 'left: 10px;' : 'right: 10px;'}
-        bottom: ${windowBottom}px;
+        position: fixed;
+        top: 60px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        height: auto;
+        border-radius: 16px 16px 0 0;
+        z-index: 10001;
+      }
+      #${ID.window}::after {
+        display: none;
+      }
+      #${ID.window} .chat-header {
+        position: sticky;
+        top: 0;
+        height: auto;
+        background: white;
+        padding: 16px 20px;
+        padding-top: max(16px, env(safe-area-inset-top));
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 10;
+      }
+      #${ID.close} {
+        font-size: 32px;
+        padding: 8px 12px;
+      }
+      #${ID.newChat} {
+        font-size: 14px;
+        padding: 10px 16px;
+      }
+      #${ID.messages} {
+        padding: 20px;
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      #${ID.window} .chat-message {
+        font-size: 16px;
+        padding: 14px 18px;
+      }
+      #${ID.inputArea} {
+        padding: 16px;
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+      }
+      #${ID.input} {
+        font-size: 16px;
+        padding: 14px;
+      }
+      #${ID.send} {
+        padding: 14px 20px;
+        font-size: 16px;
       }
     }
   `;
   }
 
-  function init() {
+  async function fetchConfig() {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/config?clientId=${CLIENT_ID}&widgetId=${WIDGET_ID}`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (err) {
+      console.warn('Chat widget: Could not fetch config, using defaults', err);
+    }
+    return null;
+  }
+
+  function applyConfig(serverConfig) {
+    // Server config as base
+    if (serverConfig) {
+      POSITION = serverConfig.position || POSITION;
+      BUBBLE_IMAGE = serverConfig.bubbleImage || BUBBLE_IMAGE;
+      BRAND_COLOR = serverConfig.brandColor || BRAND_COLOR;
+      GREETING = serverConfig.greeting || GREETING;
+      BOTTOM_OFFSET = serverConfig.bottomOffset ?? BOTTOM_OFFSET;
+      H_MARGIN = serverConfig.horizontalMargin ?? H_MARGIN;
+      PERSONA = serverConfig.persona || PERSONA;
+    }
+
+    // Data attributes override server config
+    if (ATTR_POSITION) POSITION = ATTR_POSITION;
+    if (ATTR_BUBBLE_IMAGE) BUBBLE_IMAGE = ATTR_BUBBLE_IMAGE;
+    if (ATTR_BRAND_COLOR) BRAND_COLOR = ATTR_BRAND_COLOR;
+    if (ATTR_GREETING) GREETING = ATTR_GREETING;
+    if (ATTR_BOTTOM_OFFSET) BOTTOM_OFFSET = parseInt(ATTR_BOTTOM_OFFSET) || 0;
+    if (ATTR_H_MARGIN) H_MARGIN = parseInt(ATTR_H_MARGIN) || 40;
+    if (ATTR_PERSONA) PERSONA = ATTR_PERSONA;
+  }
+
+  async function init() {
     if (!CLIENT_ID) {
       console.error('Chat widget: data-client-id attribute is required');
       return;
     }
+
+    // Fetch config from server
+    const serverConfig = await fetchConfig();
+    applyConfig(serverConfig);
 
     const styleEl = document.createElement('style');
     styleEl.textContent = buildStyles();
@@ -359,8 +484,10 @@
     const chatWindow = document.createElement('div');
     chatWindow.id = ID.window;
     chatWindow.innerHTML = `
-      <button id="${ID.newChat}">New chat</button>
-      <button id="${ID.close}">&times;</button>
+      <div class="chat-header">
+        <button id="${ID.newChat}">New chat</button>
+        <button id="${ID.close}">&times;</button>
+      </div>
       <div id="${ID.messages}"></div>
       <div id="${ID.inputArea}">
         <textarea id="${ID.input}" placeholder="Ask a question..." rows="1"></textarea>
@@ -401,6 +528,9 @@
     const chatWindow = document.getElementById(ID.window);
     chatWindow.classList.toggle('open');
     isOpen = chatWindow.classList.contains('open');
+
+    const bubble = document.getElementById(ID.bubble);
+    bubble.classList.toggle('chat-open', isOpen);
 
     const speech = document.getElementById(ID.speech);
     if (speech) {
@@ -463,17 +593,25 @@
     const input = document.getElementById(ID.input);
     const sendBtn = document.getElementById(ID.send);
     const text = input.value.trim();
-    if (!text) return;
+    if (!text || isWaitingForResponse) return;
 
+    isWaitingForResponse = true;
     addMessage(text, 'user');
     conversationHistory.push({ role: 'user', content: text });
     saveState();
     input.value = '';
+    input.disabled = true;
     sendBtn.disabled = true;
 
     const loadingMsg = addLoadingIndicator();
 
     try {
+      // Get user's local time and timezone for time-aware responses
+      const now = new Date();
+      const userTime = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      const userDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
       const response = await fetch(FUNCTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -483,7 +621,9 @@
           message: text,
           sessionId: SESSION_ID,
           history: conversationHistory,
-          persona: PERSONA
+          persona: PERSONA,
+          userTime: `${userDay} ${userTime}`,
+          userTimezone: userTimezone
         })
       });
 
@@ -504,6 +644,8 @@
       addMessage('Unable to connect. Please check your internet and try again.', 'bot');
       console.error('Chat widget error:', err);
     } finally {
+      isWaitingForResponse = false;
+      input.disabled = false;
       sendBtn.disabled = false;
       input.focus();
     }

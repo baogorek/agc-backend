@@ -5,12 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chat Widget Test</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: system-ui, sans-serif;
-      max-width: 800px;
-      margin: 50px auto;
-      padding: 20px;
+      margin: 0;
+      padding: 0;
       background: #f8fafc;
+    }
+    .site-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: #009345;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 9000;
+    }
+    .site-header nav a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+    }
+    .content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 80px 20px 20px;
     }
     h1 { color: #1e293b; }
     p { color: #64748b; line-height: 1.6; }
@@ -30,6 +54,15 @@
   </style>
 </head>
 <body>
+  <header class="site-header">
+    <strong>Local Mobile Vet</strong>
+    <nav>
+      <a href="#">Services</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+    </nav>
+  </header>
+  <div class="content">
   <h1>Chat Widget Test Page</h1>
   <p>Click the blue chat bubble in the bottom-right corner to test the widget.</p>
 
@@ -54,8 +87,24 @@
   src="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/chat-widget.js"
   data-client-id="localmobilevet"&gt;
 &lt;/script&gt;</code></pre>
+  </div>
 
-  <!-- Widget script - uses local file for testing -->
-  <script src="../widget/chat-widget.js" data-client-id="localmobilevet"></script>
+  <!-- Savannah (right side) -->
+  <script src="../widget/chat-widget.js"
+    data-client-id="localmobilevet"
+    data-widget-id="default"
+    data-bubble-image="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/savannah-the-dog.jpg"
+    data-brand-color="#009345"
+    data-greeting="Hi, I'm Savannah, your canine assistant! What questions do you have for our mobile vet team?"
+    data-position="right"></script>
+
+  <!-- Bobbi (left side) -->
+  <script src="../widget/chat-widget.js"
+    data-client-id="localmobilevet"
+    data-widget-id="bobbi"
+    data-bubble-image="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/bobbi-the-cat.jpg"
+    data-brand-color="#6366f1"
+    data-greeting="Hi, I'm Bobbi, your feline assistant! How can I help you today?"
+    data-position="left"></script>
 </body>
 </html>
