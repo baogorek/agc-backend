@@ -399,3 +399,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/submit-audit/deno.json"
 entrypoint = "./functions/submit-audit/index.ts"
+
+[functions.config]
+enabled = true
+verify_jwt = false
+import_map = "./functions/config/deno.json"
+entrypoint = "./functions/config/index.ts"

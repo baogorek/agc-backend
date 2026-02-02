@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local Mobile Vet - Services</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; color: #333; }
+
+    .header { background: #009345; color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; }
+    .header a { color: white; text-decoration: none; margin-left: 20px; }
+
+    .hero { background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200') center/cover;
+            height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; }
+    .hero h1 { font-size: 3rem; margin-bottom: 20px; }
+    .hero-btn { background: #009345; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 1.1rem; margin: 10px; cursor: pointer; }
+
+    .content { max-width: 1000px; margin: 0 auto; padding: 60px 20px; }
+    .content h2 { color: #009345; margin-bottom: 20px; }
+    .content p { line-height: 1.8; margin-bottom: 20px; }
+
+    .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin: 40px 0; }
+    .service-card { background: #f9f9f9; padding: 30px; border-radius: 10px; border-left: 4px solid #009345; }
+    .service-card h3 { color: #009345; margin-bottom: 10px; }
+
+    .cta-section { background: #f0f7f0; padding: 60px 20px; text-align: center; }
+    .cta-section h2 { margin-bottom: 20px; }
+    .cta-btn { background: #009345; color: white; padding: 15px 40px; border: none; border-radius: 5px; font-size: 1.1rem; cursor: pointer; }
+
+    .footer { background: #1a1a1a; color: #ccc; padding: 60px 40px 30px; }
+    .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; max-width: 1200px; margin: 0 auto; }
+    .footer h4 { color: white; margin-bottom: 20px; }
+    .footer ul { list-style: none; }
+    .footer li { margin-bottom: 10px; }
+    .footer a { color: #ccc; text-decoration: none; }
+    .footer a:hover { color: #009345; }
+    .footer-bottom { border-top: 1px solid #333; margin-top: 40px; padding-top: 20px; text-align: center; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div><strong>Local Mobile Veterinary Service</strong></div>
+    <nav>
+      <a href="staging-test.html">Home</a>
+      <a href="staging-new-client.html">New Client</a>
+      <a href="staging-services.html">Services</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Mobile House Call:<br>We Come to You!</h1>
+    <div>
+      <button class="hero-btn">Request Appointment</button>
+      <button class="hero-btn">(919) 219-4919</button>
+    </div>
+  </section>
+
+  <section class="content">
+    <h2>Our Services</h2>
+    <p>Comprehensive mobile veterinary care in the Triangle area. We bring quality veterinary medicine directly to your home, reducing stress for both you and your pet.</p>
+
+    <div class="services-grid">
+      <div class="service-card">
+        <h3>Complete Physical Examinations</h3>
+        <p>Thorough wellness exams in the comfort of your home.</p>
+      </div>
+      <div class="service-card">
+        <h3>Accident & Illness Care</h3>
+        <p>Prompt treatment when your pet isn't feeling well.</p>
+      </div>
+      <div class="service-card">
+        <h3>At-Home Euthanasia</h3>
+        <p>Compassionate end-of-life care in a peaceful setting.</p>
+      </div>
+      <div class="service-card">
+        <h3>Acupuncture</h3>
+        <p>Alternative therapy for pain management and wellness.</p>
+      </div>
+      <div class="service-card">
+        <h3>Therapeutic Laser</h3>
+        <p>Non-invasive treatment to reduce pain and inflammation.</p>
+      </div>
+      <div class="service-card">
+        <h3>Vaccinations</h3>
+        <p>Keep your pets protected with routine immunizations.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <h2>Ready to Schedule a Visit?</h2>
+    <p>We're here to help your furry family members feel their best.</p>
+    <button class="cta-btn">Request Appointment</button>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-grid">
+      <div>
+        <h4>Contact Us</h4>
+        <ul>
+          <li>📞 (919) 219-4919</li>
+          <li>📧 FrontDesk@LocalMobileVet.com</li>
+          <li>🚨 <a href="#">Emergency Line</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="#">Request Appointment</a></li>
+          <li><a href="#">New Client Form</a></li>
+          <li><a href="#">Services</a></li>
+          <li><a href="#">About Us</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Service Area</h4>
+        <ul>
+          <li>Raleigh</li>
+          <li>Durham</li>
+          <li>Chapel Hill</li>
+          <li>Cary & Wake Forest</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Follow Us</h4>
+        <ul>
+          <li><a href="#">Facebook</a></li>
+          <li><a href="#">Instagram</a></li>
+          <li><a href="#">Google Reviews</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2024 Local Mobile Veterinary Service. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Bobbi the cat on the LEFT -->
+  <script
+    src="../widget/chat-widget.js?id=bobbi"
+    data-client-id="localmobilevet"
+    data-widget-id="bobbi"
+    data-position="left"
+    data-bubble-image="https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/public/widget/bobbi-the-cat.jpg"
+    data-brand-color="#6366f1"
+    data-greeting="Hi, I'm Bobbi, your feline assistant! How can I help you today?"
+    data-persona="You are Bobbi, a domestic short-hair tabby cat who serves as the feline assistant for Local Mobile Vet. Stay in character as a cat - use cat-themed expressions occasionally (like 'purrfect' or 'meow-velous') but don't overdo it. You're helpful and knowledgeable about cat care especially.">
+  </script>
+
+  <!-- Savannah the dog on the RIGHT (raised 60px higher) -->
+  <script
+    src="../widget/chat-widget.js?id=savannah"
+    data-client-id="localmobilevet"
+    data-widget-id="savannah"
+    data-position="right"
+    data-bottom-offset="60"
+    data-bubble-image="https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/public/widget/savannah-the-dog.jpg"
+    data-brand-color="#009345"
+    data-greeting="Hi, I'm Savannah, your canine assistant! What questions do you have for our mobile vet team?"
+    data-persona="You are Savannah, a pit bull who serves as the canine assistant for Local Mobile Vet. Stay in character as a dog - use dog-themed expressions occasionally (like 'pawsome' or 'tail-wagging good') but don't overdo it. You're helpful and knowledgeable about dog care especially.">
+  </script>
+</body>
+</html>

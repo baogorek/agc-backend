@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobile Widget Test - Staging</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f8fafc;
+      min-height: 100vh;
+    }
+    h1 { color: #1e293b; font-size: 1.5rem; margin-top: 0; }
+    p { color: #64748b; line-height: 1.6; }
+    .cta-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 24px 0;
+    }
+    .btn {
+      display: block;
+      padding: 16px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      text-align: center;
+    }
+    .btn-primary {
+      background: #009345;
+      color: white;
+    }
+    .btn-secondary {
+      background: white;
+      color: #009345;
+      border: 2px solid #009345;
+    }
+    .test-note {
+      background: #fef3c7;
+      border: 1px solid #f59e0b;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    .spacer {
+      height: 60vh;
+      background: linear-gradient(to bottom, #e0f2fe, #f8fafc);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mobile Vet Service</h1>
+  <p>Testing mobile responsiveness of chat widget.</p>
+
+  <div class="test-note">
+    <strong>Test checklist:</strong><br>
+    1. Single tap opens chat (no double-tap needed)?<br>
+    2. Speech bubble doesn't cover the CTA buttons?<br>
+    3. Chat opens full-screen with X visible at top?<br>
+    4. Bubble hides when chat is open?<br>
+    5. Can you scroll messages smoothly?
+  </div>
+
+  <div class="cta-buttons">
+    <a href="#" class="btn btn-primary">Request Appointment</a>
+    <a href="tel:9195551234" class="btn btn-secondary">(919) 555-1234</a>
+  </div>
+
+  <div class="spacer">
+    Scroll area to test chat positioning
+  </div>
+
+  <script src="../widget/chat-widget.js"
+    data-client-id="localmobilevet"
+    data-widget-id="default"
+    data-bubble-image="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/savannah-the-dog.jpg"
+    data-brand-color="#009345"
+    data-greeting="Hi, I'm Savannah, your canine assistant! What questions do you have for our mobile vet team?"
+    data-position="right"></script>
+</body>
+</html>
