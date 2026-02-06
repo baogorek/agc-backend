@@ -8,6 +8,9 @@ supabase/.temp
 .env.local
 .env.*.local
 
+# Claude Code local memory
+CLAUDE.local.md
+
 # Node
 node_modules/
 
