@@ -1,5 +1,8 @@
 # Claude Notes
 
+## Important Rules
+- **Do NOT modify `test/index.html`** to make a feature work. Features must work via the database (`site_data`) or server config. Get explicit permission from the developers before making any changes to test files.
+
 ## Sister Repo
 Frontend marketing site (`actuallygoodchatbots`) is hosted on Vercel.
 

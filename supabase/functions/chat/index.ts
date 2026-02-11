@@ -6,7 +6,12 @@ const GCP_PROJECT_ID = Deno.env.get('GCP_PROJECT_ID')
 const GCP_CLIENT_EMAIL = Deno.env.get('GCP_CLIENT_EMAIL')
 const GCP_PRIVATE_KEY = Deno.env.get('GCP_PRIVATE_KEY')?.replace(/\\n/g, '\n')
 
-const VERTEX_URL = `https://aiplatform.googleapis.com/v1/projects/${GCP_PROJECT_ID}/locations/global/publishers/google/models/gemini-3-flash-preview:generateContent`
+const VERTEX_STREAM_URL = `https://aiplatform.googleapis.com/v1/projects/${GCP_PROJECT_ID}/locations/global/publishers/google/models/gemini-3-flash-preview:streamGenerateContent?alt=sse`
+
+const VERTEX_TIMEOUT_MS = 25_000
+const AUTH_TIMEOUT_MS = 10_000
+const MAX_VERTEX_ATTEMPTS = 3
+const RETRY_DELAY_MS = 1000
 
 function base64UrlEncode(data: string | Uint8Array): string {
   const str = typeof data === 'string' ? data : String.fromCharCode(...data)
@@ -43,19 +48,117 @@ async function getAccessToken(): Promise<string> {
 
   const jwt = `${signatureInput}.${encodedSignature}`
 
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
-  })
-  const tokenData = await tokenResponse.json()
-  return tokenData.access_token
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS)
+
+  try {
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+      signal: controller.signal
+    })
+    const tokenData = await tokenResponse.json()
+    return tokenData.access_token
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function logMetrics(
+  supabase: any,
+  params: {
+    clientId: string
+    sessionId: string
+    widgetId?: string
+    responseTimeMs: number
+    vertexAttempts: number
+    vertexStatus?: number
+    success: boolean
+    errorType?: string
+    errorDetails?: string
+  }
+) {
+  supabase.from('chat_metrics').insert({
+    client_id: params.clientId,
+    session_id: params.sessionId,
+    widget_id: params.widgetId,
+    response_time_ms: params.responseTimeMs,
+    vertex_attempts: params.vertexAttempts,
+    vertex_status: params.vertexStatus,
+    success: params.success,
+    error_type: params.errorType,
+    error_details: params.errorDetails,
+  }).then(() => {}).catch(console.error)
+}
+
+async function callVertexWithRetry(
+  accessToken: string,
+  body: object
+): Promise<{ response: Response; attempts: number }> {
+  let lastError: Error | null = null
+  let lastStatus: number | undefined
+
+  for (let attempt = 1; attempt <= MAX_VERTEX_ATTEMPTS; attempt++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), VERTEX_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(VERTEX_STREAM_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      })
+      clearTimeout(timeout)
+
+      if (response.ok) {
+        return { response, attempts: attempt }
+      }
+
+      lastStatus = response.status
+      const errorText = await response.text()
+      lastError = new Error(`Vertex AI ${response.status}: ${errorText}`)
+      console.error(`Vertex AI attempt ${attempt} failed:`, response.status, errorText)
+
+      if (response.status < 500 && response.status !== 429) {
+        throw Object.assign(lastError, { status: response.status, retryable: false })
+      }
+    } catch (err: any) {
+      clearTimeout(timeout)
+
+      if (err.retryable === false) throw err
+
+      if (err.name === 'AbortError') {
+        lastError = new Error('Vertex AI request timed out')
+        lastStatus = undefined
+        console.error(`Vertex AI attempt ${attempt} timed out`)
+      } else if (!lastError) {
+        lastError = err
+        console.error(`Vertex AI attempt ${attempt} network error:`, err.message)
+      }
+    }
+
+    if (attempt < MAX_VERTEX_ATTEMPTS) {
+      const delay = RETRY_DELAY_MS * attempt
+      console.log(`Retrying Vertex AI in ${delay}ms (attempt ${attempt + 1})...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+
+  throw Object.assign(lastError || new Error('Vertex AI failed'), {
+    status: lastStatus,
+    attempts: MAX_VERTEX_ATTEMPTS
+  })
 }
 
 Deno.serve(async (req) => {
@@ -70,6 +173,8 @@ Deno.serve(async (req) => {
     )
   }
 
+  const requestStartTime = Date.now()
+
   try {
     const { clientId, widgetId, message, sessionId, history, persona, userTime, userTimezone } = await req.json()
 
@@ -80,7 +185,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Build conversation contents from history (Gemini uses 'model' for assistant)
     const contents = (history || []).map((msg: { role: string; content: string }) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
@@ -114,7 +218,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Message length limit
     if (message.length > 2000) {
       return new Response(
         JSON.stringify({ error: 'Message too long (max 2000 characters)' }),
@@ -122,7 +225,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Rate limiting: 30 requests per minute per IP per client
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
     const oneMinuteAgo = new Date(Date.now() - 60000).toISOString()
 
@@ -140,7 +242,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Record this request for rate limiting
     supabase.from('rate_limits').insert({ client_id: clientId, ip_address: clientIp }).then(() => {}).catch(console.error)
 
     let systemPrompt = buildSystemPrompt(client.site_data, userTime, userTimezone)
@@ -152,49 +253,151 @@ Deno.serve(async (req) => {
     try {
       accessToken = await getAccessToken()
       console.log('Access token obtained:', accessToken ? 'yes' : 'no')
-    } catch (tokenErr) {
+    } catch (tokenErr: any) {
       console.error('Token error:', tokenErr)
+      const errorType = tokenErr.name === 'AbortError' ? 'timeout' : 'auth_error'
+      logMetrics(supabase, {
+        clientId, sessionId, widgetId,
+        responseTimeMs: Date.now() - requestStartTime,
+        vertexAttempts: 0,
+        success: false,
+        errorType,
+        errorDetails: String(tokenErr)
+      })
       return new Response(
         JSON.stringify({ error: 'Authentication failed', details: String(tokenErr) }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('Calling Vertex URL:', VERTEX_URL)
-    const vertexResponse = await fetch(VERTEX_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
-      },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: message }] }]
-      })
-    })
+    const vertexBody = {
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: message }] }]
+    }
 
-    if (!vertexResponse.ok) {
-      const errorText = await vertexResponse.text()
-      console.error('Vertex AI error:', vertexResponse.status, errorText)
+    let vertexResponse: Response
+    let vertexAttempts: number
+
+    try {
+      const result = await callVertexWithRetry(accessToken, vertexBody)
+      vertexResponse = result.response
+      vertexAttempts = result.attempts
+    } catch (err: any) {
+      const errorType = err.message?.includes('timed out') ? 'timeout'
+        : err.status >= 500 ? 'vertex_5xx'
+        : err.status ? `vertex_${err.status}`
+        : 'network_error'
+      logMetrics(supabase, {
+        clientId, sessionId, widgetId,
+        responseTimeMs: Date.now() - requestStartTime,
+        vertexAttempts: err.attempts || MAX_VERTEX_ATTEMPTS,
+        vertexStatus: err.status,
+        success: false,
+        errorType,
+        errorDetails: err.message
+      })
       return new Response(
-        JSON.stringify({ error: 'AI service unavailable', status: vertexResponse.status, details: errorText }),
+        JSON.stringify({ error: 'AI service unavailable' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const geminiData = await vertexResponse.json()
-    const reply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
-      'Sorry, I could not get a response. Please try again.'
+    const fullReplyParts: string[] = []
+    const encoder = new TextEncoder()
 
-    supabase.from('chat_logs').insert([
-      { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'user', message, origin },
-      { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'assistant', message: reply, origin }
-    ]).then(() => {}).catch(console.error)
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = vertexResponse.body!.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
 
-    return new Response(
-      JSON.stringify({ reply }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop()!
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue
+              const jsonStr = line.slice(6).trim()
+              if (!jsonStr || jsonStr === '[DONE]') continue
+
+              try {
+                const parsed = JSON.parse(jsonStr)
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
+                if (text) {
+                  fullReplyParts.push(text)
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+                }
+              } catch {
+                // skip malformed SSE chunks
+              }
+            }
+          }
+
+          // Process any remaining buffer
+          if (buffer.startsWith('data: ')) {
+            const jsonStr = buffer.slice(6).trim()
+            if (jsonStr && jsonStr !== '[DONE]') {
+              try {
+                const parsed = JSON.parse(jsonStr)
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
+                if (text) {
+                  fullReplyParts.push(text)
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+                }
+              } catch {
+                // skip
+              }
+            }
+          }
+
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+          controller.close()
+
+          const fullReply = fullReplyParts.join('')
+          supabase.from('chat_logs').insert([
+            { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'user', message, origin },
+            { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'assistant', message: fullReply, origin }
+          ]).then(() => {}).catch(console.error)
+
+          logMetrics(supabase, {
+            clientId, sessionId, widgetId,
+            responseTimeMs: Date.now() - requestStartTime,
+            vertexAttempts,
+            vertexStatus: vertexResponse.status,
+            success: true
+          })
+        } catch (streamErr) {
+          console.error('Stream processing error:', streamErr)
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`))
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+          controller.close()
+
+          logMetrics(supabase, {
+            clientId, sessionId, widgetId,
+            responseTimeMs: Date.now() - requestStartTime,
+            vertexAttempts,
+            vertexStatus: vertexResponse.status,
+            success: false,
+            errorType: 'stream_error',
+            errorDetails: String(streamErr)
+          })
+        }
+      }
+    })
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+      }
+    })
 
   } catch (err) {
     console.error('Edge function error:', err)
@@ -215,8 +418,9 @@ CURRENT TIME: ${userTime || 'Unknown'} (${userTimezone || 'Unknown timezone'})
 TONE & STYLE:
 - Be conversational and warm, like texting with a helpful friend
 - Keep responses SHORT - 1-2 sentences max unless they ask for details
+- Don't use em dashes (—) - use commas, periods, or just break into separate sentences
 - Use casual language ("Yeah!", "Sure thing!", "Happy to help!")
-- Include a relevant link when it makes sense — always use Markdown format: [Link Text](URL)
+- Include a relevant link when it makes sense, always using Markdown format: [Link Text](URL)
 - Keep the conversation going - ask follow-up questions, show interest
 - When sharing a link, invite them to come back and chat more afterward
 
@@ -264,7 +468,6 @@ WEBSITE PAGES:\n`
   }
 
   if (emergencyAction) {
-    // Support new structured format with emergencyFacilities array
     if (emergencyAction.emergencyFacilities && emergencyAction.severityLevels) {
       const { triageGuidance, severityLevels, emergencyFacilities } = emergencyAction
       const { critical, moderate, minor } = severityLevels
@@ -287,7 +490,6 @@ IMPORTANT:
 - Take emergencies seriously but stay calm and reassuring.
 - After directing them to emergency care, invite them to chat again once their pet is stable.\n`
     } else {
-      // Legacy format support
       prompt += `\nEMERGENCY TRIAGE (HIGHEST PRIORITY):
 ${emergencyAction.triggers}
 If you detect an emergency: ${emergencyAction.message}

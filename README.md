@@ -46,12 +46,7 @@ npm run functions:serve    # Serve Edge Function locally
 
 ## Deployment
 
-> **Safety note:** The Supabase CLI should always stay linked to **staging**. The bare `npm run` commands below deploy to staging. See [Promoting staging to production](#promoting-staging-to-production) for production deploys.
-
-```bash
-npm run db:push            # Push migrations to staging
-npm run functions:deploy   # Deploy Edge Function to staging
-```
+> **Safety note:** The Supabase CLI should always stay linked to **staging**. The bare `npm run` commands deploy to staging. Production deploys use dedicated npm scripts that pass `--project-ref` explicitly.
 
 ## Adding a New Client
 
@@ -171,11 +166,13 @@ The source file `widget/chat-widget.js` always contains the **staging** Supabase
    npm run widget:deploy
    ```
 
-5. **Deploy to production** (after testing):
-   ```bash
-   npm run widget:deploy:prod
-   ```
-   This automatically swaps the staging URL → production URL during upload.
+### Deploy to Staging
+
+```bash
+npm run widget:deploy      # Widget to staging storage
+npm run functions:deploy   # Edge Function to staging
+npm run db:push            # Migrations to staging
+```
 
 ### Staging allowed origins
 

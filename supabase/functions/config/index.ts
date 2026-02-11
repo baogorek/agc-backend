@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
         position: config.position || 'right',
         bottomOffset: config.bottomOffset || 0,
         horizontalMargin: config.horizontalMargin || 40,
+        waitingMessage: config.waitingMessage || siteData.waitingMessage || null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

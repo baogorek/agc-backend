@@ -13,6 +13,7 @@
   const ATTR_BOTTOM_OFFSET = scriptTag.getAttribute('data-bottom-offset');
   const ATTR_H_MARGIN = scriptTag.getAttribute('data-horizontal-margin');
   const ATTR_PERSONA = scriptTag.getAttribute('data-persona');
+  const ATTR_WAITING_MESSAGE = scriptTag.getAttribute('data-waiting-message');
 
   // Config values (populated from server, then overridden by data attributes)
   let POSITION = 'right';
@@ -22,6 +23,7 @@
   let BOTTOM_OFFSET = 0;
   let H_MARGIN = 40;
   let PERSONA = null;
+  let WAITING_MESSAGE = null;
 
   function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -296,6 +298,15 @@
       0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
       30% { opacity: 1; transform: scale(1); }
     }
+    #${ID.window} .chat-message.waiting-text {
+      color: #64748b;
+      font-style: italic;
+      animation: waiting-pulse-${WIDGET_ID} 2s ease-in-out infinite;
+    }
+    @keyframes waiting-pulse-${WIDGET_ID} {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
 
     #${ID.inputArea} {
       display: flex;
@@ -328,6 +339,25 @@
     }
     #${ID.send}:hover { background: ${BRAND_COLOR}; filter: brightness(0.9); }
     #${ID.send}:disabled { background: #94a3b8; cursor: not-allowed; filter: none; }
+
+    #${ID.window} .chat-powered-by {
+      text-align: left;
+      padding: 6px 12px;
+      background: #fafafa;
+      border-top: 1px solid #f0f0f0;
+    }
+    #${ID.window} .chat-powered-by a {
+      color: #9ca3af;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 400;
+    }
+    #${ID.window} .chat-powered-by a:hover {
+      color: #6b7280;
+    }
+    #${ID.window} .chat-powered-by a span {
+      font-weight: 600;
+    }
 
     @media (max-width: 430px) {
       #${ID.bubble}.has-image {
@@ -387,7 +417,10 @@
       }
       #${ID.inputArea} {
         padding: 16px;
-        padding-bottom: max(16px, env(safe-area-inset-bottom));
+      }
+      #${ID.window} .chat-powered-by {
+        padding: 8px 16px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
       }
       #${ID.input} {
         font-size: 16px;
@@ -423,6 +456,7 @@
       BOTTOM_OFFSET = serverConfig.bottomOffset ?? BOTTOM_OFFSET;
       H_MARGIN = serverConfig.horizontalMargin ?? H_MARGIN;
       PERSONA = serverConfig.persona || PERSONA;
+      WAITING_MESSAGE = serverConfig.waitingMessage || WAITING_MESSAGE;
     }
 
     // Data attributes override server config
@@ -433,6 +467,7 @@
     if (ATTR_BOTTOM_OFFSET) BOTTOM_OFFSET = parseInt(ATTR_BOTTOM_OFFSET) || 0;
     if (ATTR_H_MARGIN) H_MARGIN = parseInt(ATTR_H_MARGIN) || 40;
     if (ATTR_PERSONA) PERSONA = ATTR_PERSONA;
+    if (ATTR_WAITING_MESSAGE) WAITING_MESSAGE = ATTR_WAITING_MESSAGE;
   }
 
   async function init() {
@@ -492,6 +527,11 @@
       <div id="${ID.inputArea}">
         <textarea id="${ID.input}" placeholder="Ask a question..." rows="1"></textarea>
         <button id="${ID.send}">Send</button>
+      </div>
+      <div class="chat-powered-by">
+        <a href="https://actuallygoodchatbots.com" target="_blank" rel="noopener noreferrer">
+          Powered by <span>Actually Good Chatbots</span>
+        </a>
       </div>
     `;
     document.body.appendChild(chatWindow);
@@ -609,9 +649,20 @@
     sendBtn.disabled = true;
 
     const loadingMsg = addLoadingIndicator();
+    const patienceTimer = WAITING_MESSAGE ? setTimeout(() => {
+      loadingMsg.innerHTML = '';
+      loadingMsg.classList.remove('loading');
+      loadingMsg.classList.add('loading', 'waiting-text');
+      const msgs_list = WAITING_MESSAGE.split('|').map(m => m.trim());
+      loadingMsg.textContent = msgs_list[Math.floor(Math.random() * msgs_list.length)];
+      const msgs = document.getElementById(ID.messages);
+      if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    }, 5000) : null;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
     try {
-      // Get user's local time and timezone for time-aware responses
       const now = new Date();
       const userTime = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       const userDay = now.toLocaleDateString('en-US', { weekday: 'long' });
@@ -629,24 +680,84 @@
           persona: PERSONA,
           userTime: `${userDay} ${userTime}`,
           userTimezone: userTimezone
-        })
+        }),
+        signal: controller.signal
       });
 
-      loadingMsg.remove();
+      clearTimeout(timeout);
 
       if (!response.ok) {
-        const error = await response.json();
-        addMessage(error.error || 'Sorry, something went wrong. Please try again.', 'bot');
+        clearTimeout(patienceTimer);
+        loadingMsg.remove();
+        addMessage('Something went wrong. Please try again in a moment.', 'bot');
         return;
       }
 
-      const data = await response.json();
-      addMessage(data.reply, 'bot');
-      conversationHistory.push({ role: 'assistant', content: data.reply });
-      saveState();
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/event-stream')) {
+        clearTimeout(patienceTimer);
+        loadingMsg.remove();
+        const botMsg = addMessage('', 'bot');
+        let fullText = '';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (!data || data === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.error) {
+                if (!fullText) {
+                  fullText = 'Something went wrong. Please try again in a moment.';
+                }
+                break;
+              }
+              if (parsed.text) {
+                fullText += parsed.text;
+                renderBotMessage(botMsg, fullText);
+              }
+            } catch {
+              // skip malformed chunks
+            }
+          }
+        }
+
+        if (!fullText) {
+          fullText = 'Sorry, I could not get a response. Please try again.';
+          renderBotMessage(botMsg, fullText);
+        }
+        conversationHistory.push({ role: 'assistant', content: fullText });
+        saveState();
+      } else {
+        // Fallback for non-streaming response
+        clearTimeout(patienceTimer);
+        loadingMsg.remove();
+        const data = await response.json();
+        addMessage(data.reply, 'bot');
+        conversationHistory.push({ role: 'assistant', content: data.reply });
+        saveState();
+      }
     } catch (err) {
+      clearTimeout(timeout);
+      clearTimeout(patienceTimer);
       loadingMsg.remove();
-      addMessage('Unable to connect. Please check your internet and try again.', 'bot');
+      if (err.name === 'AbortError') {
+        addMessage('Response is taking too long. Please try again in a moment.', 'bot');
+      } else {
+        addMessage('Something went wrong. Please try again in a moment.', 'bot');
+      }
       console.error('Chat widget error:', err);
     } finally {
       isWaitingForResponse = false;
@@ -666,33 +777,43 @@
     return msg;
   }
 
+  function formatBotText(text) {
+    let html = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" rel="noopener">$1</a>')
+      .replace(/\n/g, '<br>');
+    html = html.replace(/(^|[^"'>])(https?:\/\/[^\s<"'—–]+)/g, (_, prefix, url) => {
+      let trailing = '';
+      while (url.length > 0) {
+        const last = url[url.length - 1];
+        if ('.,:;!'.includes(last)) {
+          trailing = last + trailing;
+          url = url.slice(0, -1);
+        } else if (last === ')' && url.split('(').length <= url.split(')').length) {
+          trailing = last + trailing;
+          url = url.slice(0, -1);
+        } else {
+          break;
+        }
+      }
+      return `${prefix}<a href="${url}" rel="noopener">${url}</a>${trailing}`;
+    });
+    return html;
+  }
+
+  function renderBotMessage(el, text) {
+    el.innerHTML = formatBotText(text);
+    const messages = document.getElementById(ID.messages);
+    if (messages) messages.scrollTop = messages.scrollHeight;
+  }
+
   function addMessage(text, className) {
     const messages = document.getElementById(ID.messages);
     const msg = document.createElement('div');
     msg.className = `chat-message ${className}`;
 
     if (className.includes('bot') && !className.includes('loading')) {
-      let html = text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" rel="noopener">$1</a>')
-        .replace(/\n/g, '<br>');
-      html = html.replace(/(^|[^"'>])(https?:\/\/[^\s<"'—–]+)/g, (_, prefix, url) => {
-        let trailing = '';
-        while (url.length > 0) {
-          const last = url[url.length - 1];
-          if ('.,:;!'.includes(last)) {
-            trailing = last + trailing;
-            url = url.slice(0, -1);
-          } else if (last === ')' && url.split('(').length <= url.split(')').length) {
-            trailing = last + trailing;
-            url = url.slice(0, -1);
-          } else {
-            break;
-          }
-        }
-        return `${prefix}<a href="${url}" rel="noopener">${url}</a>${trailing}`;
-      });
-      msg.innerHTML = html;
+      msg.innerHTML = formatBotText(text);
     } else {
       msg.textContent = text;
     }
