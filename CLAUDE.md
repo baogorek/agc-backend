@@ -1,7 +1,7 @@
 # Claude Notes
 
 ## Sister Repo
-Frontend website is in `~/devl/actuallygoodchatbots` - the marketing site hosted on Vercel.
+Frontend marketing site (`actuallygoodchatbots`) is hosted on Vercel.
 
 ## Supabase Projects
 
@@ -15,21 +15,25 @@ Frontend website is in `~/devl/actuallygoodchatbots` - the marketing site hosted
 - **Region:** East US (Ohio) = us-east-2
 - **URL:** https://wbgdpxogtpqijkqyaeke.supabase.co
 
-## Database Connection
-Direct connection is IPv6 only. Use **Session Pooler** (free, IPv4 compatible):
+## Database Access
 
-Production:
+**Preferred:** Use the Supabase Dashboard SQL Editor:
+- [Production SQL Editor](https://supabase.com/dashboard/project/rukppthsduuvsfjynfmw/sql)
+- [Staging SQL Editor](https://supabase.com/dashboard/project/wbgdpxogtpqijkqyaeke/sql)
+
+**Optional (requires psql):** Direct connection via Session Pooler (IPv4 compatible):
+- Production: `postgres://postgres.rukppthsduuvsfjynfmw@aws-0-us-west-2.pooler.supabase.com:5432/postgres`
+- Staging: `postgres://postgres.wbgdpxogtpqijkqyaeke@aws-1-us-east-2.pooler.supabase.com:5432/postgres`
+- Port 5432 = Session mode, Port 6543 = Transaction mode
+
+**Linux/Mac psql shortcuts** (requires passwords in `~/.bashrc`):
 ```bash
+# Production
 bash -c 'export PGPASSWORD=$(grep SUPABASE_DB_PASSWORD ~/.bashrc | cut -d"\"" -f2) && psql "postgres://postgres.rukppthsduuvsfjynfmw@aws-0-us-west-2.pooler.supabase.com:5432/postgres" -c "YOUR SQL"'
-```
 
-Staging:
-```bash
+# Staging
 bash -c 'export PGPASSWORD=$(grep SUPABASE_DB_PASSWORD_STAGING ~/.bashrc | cut -d"\"" -f2) && psql "postgres://postgres.wbgdpxogtpqijkqyaeke@aws-1-us-east-2.pooler.supabase.com:5432/postgres" -c "YOUR SQL"'
 ```
-
-- Passwords stored in `~/.bashrc` as `SUPABASE_DB_PASSWORD` (prod) and `SUPABASE_DB_PASSWORD_STAGING` (staging)
-- Port 5432 = Session mode, Port 6543 = Transaction mode
 
 ## Supabase CLI
 ```bash
@@ -82,16 +86,15 @@ Credentials stored as Supabase secrets: `GCP_PROJECT_ID`, `GCP_CLIENT_EMAIL`, `G
 ngrok creates a public URL that tunnels to your local machine, letting you test local code changes on your phone.
 
 ### Setup (one-time)
+Install ngrok from https://ngrok.com/download, then:
 ```bash
-sudo snap install ngrok
-# Sign up at https://ngrok.com and get your auth token
 ngrok config add-authtoken YOUR_TOKEN
 ```
 
 ### Testing workflow
 ```bash
-# Terminal 1: serve files locally
-cd ~/devl/agc-backend && python3 -m http.server 8080
+# Terminal 1: serve files locally from the repo root
+python -m http.server 8080
 
 # Terminal 2: expose to internet
 ngrok http 8080
