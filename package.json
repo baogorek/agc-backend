@@ -8,12 +8,12 @@
     "db:reset": "npx supabase db reset",
     "functions:serve": "npx supabase functions serve chat --env-file .env.local",
     "functions:deploy": "npx supabase functions deploy chat --no-verify-jwt",
-    "functions:deploy:prod": "bash scripts/confirm-prod.sh npx supabase functions deploy chat --no-verify-jwt --project-ref rukppthsduuvsfjynfmw",
-    "db:push:prod": "bash scripts/confirm-prod.sh npx supabase db push --project-ref rukppthsduuvsfjynfmw",
+    "functions:deploy:prod": "node scripts/confirm-prod.js npx supabase functions deploy chat --no-verify-jwt --project-ref rukppthsduuvsfjynfmw",
+    "db:push:prod": "node scripts/confirm-prod.js node scripts/db-push-prod.js",
     "start": "npx supabase start",
     "stop": "npx supabase stop",
-    "widget:deploy": "echo y | npx supabase storage rm ss:///widget/chat-widget.js --experimental --recursive ; npx supabase storage cp widget/chat-widget.js ss:///widget/chat-widget.js --experimental",
-    "widget:deploy:prod": "bash scripts/confirm-prod.sh bash -c \"sed 's/wbgdpxogtpqijkqyaeke/rukppthsduuvsfjynfmw/g' widget/chat-widget.js > /tmp/chat-widget-prod.js && npx supabase link --project-ref rukppthsduuvsfjynfmw && echo y | npx supabase storage rm ss:///widget/chat-widget.js --experimental --recursive && npx supabase storage cp /tmp/chat-widget-prod.js ss:///widget/chat-widget.js --experimental && npx supabase link --project-ref wbgdpxogtpqijkqyaeke\""
+    "widget:deploy": "npx supabase storage rm ss:///widget/chat-widget.js --experimental --yes & npx supabase storage cp widget/chat-widget.js ss:///widget/chat-widget.js --experimental",
+    "widget:deploy:prod": "node scripts/confirm-prod.js node scripts/widget-deploy-prod.js"
   },
   "repository": {
     "type": "git",

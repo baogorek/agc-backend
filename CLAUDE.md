@@ -100,4 +100,27 @@ python -m http.server 8080
 ngrok http 8080
 ```
 
+### Allow the ngrok origin (required for chat API)
+The chat edge function checks `allowed_origins`, so the ngrok URL must be added temporarily. Run this in the [Staging SQL Editor](https://supabase.com/dashboard/project/wbgdpxogtpqijkqyaeke/sql):
+
+```sql
+-- Add ngrok origin (replace URL with your current ngrok URL)
+UPDATE clients
+SET allowed_origins = allowed_origins || '["https://YOUR-NGROK-URL.ngrok-free.dev"]'::jsonb
+WHERE id = 'CLIENT_ID';
+```
+
 Open `https://<ngrok-url>/test/index.html` on your phone. The test page loads the widget from local `../widget/chat-widget.js`, so changes are reflected immediately on refresh.
+
+### Clean up after testing
+Remove the ngrok origin when done:
+
+```sql
+-- Remove ngrok origin
+UPDATE clients
+SET allowed_origins = allowed_origins - 'https://YOUR-NGROK-URL.ngrok-free.dev'
+WHERE id = 'CLIENT_ID';
+
+-- Verify
+SELECT allowed_origins FROM clients WHERE id = 'CLIENT_ID';
+```

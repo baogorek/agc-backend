@@ -514,6 +514,11 @@
         chatWindow.classList.add('open');
         const speechBubble = document.getElementById(ID.speech);
         if (speechBubble) speechBubble.classList.add('hidden');
+        // Scroll to bottom after window is visible and rendered
+        requestAnimationFrame(() => {
+          const messages = document.getElementById(ID.messages);
+          if (messages) messages.scrollTop = messages.scrollHeight;
+        });
         // Notify other widgets that we're open
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('chat-widget-toggle', {
@@ -669,9 +674,24 @@
     if (className.includes('bot') && !className.includes('loading')) {
       let html = text
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" rel="noopener">$1</a>')
         .replace(/\n/g, '<br>');
-      html = html.replace(/(^|[^"'>])(https?:\/\/[^\s<"'—–]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+      html = html.replace(/(^|[^"'>])(https?:\/\/[^\s<"'—–]+)/g, (_, prefix, url) => {
+        let trailing = '';
+        while (url.length > 0) {
+          const last = url[url.length - 1];
+          if ('.,:;!'.includes(last)) {
+            trailing = last + trailing;
+            url = url.slice(0, -1);
+          } else if (last === ')' && url.split('(').length <= url.split(')').length) {
+            trailing = last + trailing;
+            url = url.slice(0, -1);
+          } else {
+            break;
+          }
+        }
+        return `${prefix}<a href="${url}" rel="noopener">${url}</a>${trailing}`;
+      });
       msg.innerHTML = html;
     } else {
       msg.textContent = text;

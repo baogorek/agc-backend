@@ -14,5 +14,8 @@ CLAUDE.local.md
 # Node
 node_modules/
 
+# Temp deploy artifacts
+.chat-widget-prod.js
+
 # OS
 .DS_Store
