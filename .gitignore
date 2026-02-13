@@ -17,5 +17,8 @@ node_modules/
 # Temp deploy artifacts
 .chat-widget-prod.js
 
+# IDE
+.vscode/
+
 # OS
 .DS_Store
