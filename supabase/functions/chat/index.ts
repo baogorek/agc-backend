@@ -244,9 +244,30 @@ Deno.serve(async (req) => {
 
     supabase.from('rate_limits').insert({ client_id: clientId, ip_address: clientIp }).then(() => {}).catch(console.error)
 
-    let systemPrompt = buildSystemPrompt(client.site_data, userTime, userTimezone)
+    let systemPrompt = client.site_data.systemPrompt
+      ? client.site_data.systemPrompt.replace('{{CURRENT_TIME}}', `${userTime || 'Unknown'} (${userTimezone || 'Unknown timezone'})`)
+      : buildSystemPrompt(client.site_data, userTime, userTimezone)
     if (persona) {
       systemPrompt = persona + '\n\n' + systemPrompt
+    }
+
+    if (client.site_data.menuUrl) {
+      try {
+        const menuRes = await fetch(client.site_data.menuUrl, {
+          signal: AbortSignal.timeout(5000)
+        })
+        if (menuRes.ok) {
+          const menuCookies = await menuRes.json()
+          const menuContext = '\n\nCURRENTLY AVAILABLE COOKIES:\n' +
+            menuCookies.map((c: any) =>
+              `- ${c.name}${c.availability ? ` (${c.availability})` : ''}`
+            ).join('\n') +
+            '\nUse EXACT names from this list when using the build_box tool.'
+          systemPrompt += menuContext
+        }
+      } catch (e) {
+        console.log('Menu fetch failed, using static list:', e)
+      }
     }
 
     let accessToken: string
@@ -270,9 +291,14 @@ Deno.serve(async (req) => {
       )
     }
 
-    const vertexBody = {
+    const vertexBody: any = {
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: message }] }]
+    }
+
+    if (client.site_data.tools) {
+      vertexBody.tools = client.site_data.tools
+      vertexBody.toolConfig = { functionCallingConfig: { mode: "AUTO" } }
     }
 
     let vertexResponse: Response
@@ -303,6 +329,8 @@ Deno.serve(async (req) => {
     }
 
     const fullReplyParts: string[] = []
+    const collectedActions: any[] = []
+    const hasTools = !!client.site_data.tools
     const encoder = new TextEncoder()
 
     const stream = new ReadableStream({
@@ -327,10 +355,23 @@ Deno.serve(async (req) => {
 
               try {
                 const parsed = JSON.parse(jsonStr)
-                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
-                if (text) {
-                  fullReplyParts.push(text)
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+                if (hasTools) {
+                  const parts = parsed.candidates?.[0]?.content?.parts || []
+                  for (const part of parts) {
+                    if (part.text) {
+                      fullReplyParts.push(part.text)
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: part.text })}\n\n`))
+                    }
+                    if (part.functionCall) {
+                      collectedActions.push(part.functionCall)
+                    }
+                  }
+                } else {
+                  const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
+                  if (text) {
+                    fullReplyParts.push(text)
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+                  }
                 }
               } catch {
                 // skip malformed SSE chunks
@@ -344,10 +385,23 @@ Deno.serve(async (req) => {
             if (jsonStr && jsonStr !== '[DONE]') {
               try {
                 const parsed = JSON.parse(jsonStr)
-                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
-                if (text) {
-                  fullReplyParts.push(text)
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+                if (hasTools) {
+                  const parts = parsed.candidates?.[0]?.content?.parts || []
+                  for (const part of parts) {
+                    if (part.text) {
+                      fullReplyParts.push(part.text)
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: part.text })}\n\n`))
+                    }
+                    if (part.functionCall) {
+                      collectedActions.push(part.functionCall)
+                    }
+                  }
+                } else {
+                  const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
+                  if (text) {
+                    fullReplyParts.push(text)
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+                  }
                 }
               } catch {
                 // skip
@@ -355,10 +409,17 @@ Deno.serve(async (req) => {
             }
           }
 
+          for (const action of collectedActions) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              action: { type: action.name, ...action.args }
+            })}\n\n`))
+          }
+
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
           controller.close()
 
           const fullReply = fullReplyParts.join('')
+            + (collectedActions.length > 0 ? '\n[Built a 4-pack box]' : '')
           supabase.from('chat_logs').insert([
             { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'user', message, origin },
             { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'assistant', message: fullReply, origin }

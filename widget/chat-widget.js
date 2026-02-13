@@ -699,6 +699,7 @@
         loadingMsg.remove();
         const botMsg = addMessage('', 'bot');
         let fullText = '';
+        let hasAction = false;
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -728,14 +729,21 @@
                 fullText += parsed.text;
                 renderBotMessage(botMsg, fullText);
               }
+              if (parsed.action) {
+                hasAction = true;
+                handleAction(parsed.action);
+              }
             } catch {
               // skip malformed chunks
             }
           }
         }
 
-        if (!fullText) {
+        if (!fullText && !hasAction) {
           fullText = 'Sorry, I could not get a response. Please try again.';
+          renderBotMessage(botMsg, fullText);
+        } else if (!fullText && hasAction) {
+          fullText = 'Your box is ready! Check it out and hit checkout when you\'re good to go.';
           renderBotMessage(botMsg, fullText);
         }
         conversationHistory.push({ role: 'assistant', content: fullText });
@@ -805,6 +813,28 @@
     el.innerHTML = formatBotText(text);
     const messages = document.getElementById(ID.messages);
     if (messages) messages.scrollTop = messages.scrollHeight;
+  }
+
+  function handleAction(action) {
+    window.dispatchEvent(new CustomEvent('agc-action', { detail: action }));
+
+    if (action.type === 'build_box' && Array.isArray(action.cookies)) {
+      // Clear existing box by clicking all Remove buttons
+      Array.from(document.querySelectorAll('button'))
+        .filter(b => b.textContent.trim() === 'Remove')
+        .forEach(b => b.click());
+
+      // Wait for framework to process removes, then click cookie cards
+      setTimeout(() => {
+        action.cookies.forEach((name, i) => {
+          setTimeout(() => {
+            const btn = Array.from(document.querySelectorAll('button:not([disabled])'))
+              .find(b => b.querySelector('img[alt="' + name + '"]'));
+            if (btn) btn.click();
+          }, i * 100);
+        });
+      }, 200);
+    }
   }
 
   function addMessage(text, className) {
