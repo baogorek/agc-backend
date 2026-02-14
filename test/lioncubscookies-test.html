@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lion Cub's Cookies - Chat Widget Test</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700&family=Outfit:wght@400;500&family=Caveat:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: #fdf6ec;
+      color: #592e2c;
+      min-height: 100vh;
+    }
+    header {
+      background: #592e2c;
+      color: #fdf6ec;
+      padding: 24px 32px;
+      text-align: center;
+    }
+    header h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 2rem;
+      margin-bottom: 4px;
+    }
+    header p {
+      font-family: 'Caveat', cursive;
+      font-size: 1.2rem;
+      color: #fdcf85;
+    }
+    main {
+      max-width: 720px;
+      margin: 32px auto;
+      padding: 0 24px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(89, 46, 44, 0.1);
+    }
+    .card h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.3rem;
+      margin-bottom: 12px;
+      color: #592e2c;
+      border-bottom: 2px solid #fdcf85;
+      padding-bottom: 8px;
+    }
+    .card ul { list-style: none; padding: 0; }
+    .card li {
+      padding: 6px 0;
+      border-bottom: 1px solid #f5ede0;
+      font-size: 0.95rem;
+    }
+    .card li:last-child { border-bottom: none; }
+    .embed-code {
+      background: #2d2d2d;
+      color: #e0e0e0;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Lion Cub's Cookies</h1>
+    <p>thicc, ooey-gooey, monster cookies</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>Test Questions</h2>
+      <ul>
+        <li>What cookies do you always have?</li>
+        <li>What's available this week?</li>
+        <li>How do I order?</li>
+        <li>Where are you located?</li>
+        <li>Do you do catering?</li>
+        <li>Can I send cookies as a gift?</li>
+        <li>What makes your cookies special?</li>
+        <li>What are your hours?</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Production Embed Code</h2>
+      <div class="embed-code">&lt;script src="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/chat-widget.js"
+  data-client-id="lioncubscookies"&gt;&lt;/script&gt;</div>
+    </div>
+  </main>
+
+  <script
+    src="../widget/chat-widget.js"
+    data-client-id="lioncubscookies"
+    data-bubble-image="https://wbgdpxogtpqijkqyaeke.supabase.co/storage/v1/object/public/widget/lcc-mobile-logo.svg"
+    data-brand-color="#592e2c"
+    data-greeting="Have you tried our cookie of the week yet? Check out what's fresh and build a 4-pack!">
+  </script>
+</body>
+</html>

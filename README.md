@@ -80,7 +80,7 @@ The upsert pattern makes the file idempotent — safe to re-run anytime, whether
 Upload any bubble images or logos to the Supabase storage `widget` bucket in both staging and production.
 
 ### 5. Insert into staging, test, then production
-Run the insert SQL in the [staging SQL Editor](https://supabase.com/dashboard/project/wbgdpxogtpqijkqyaeke/sql) first. Test the widget. Then run the same SQL in the [production SQL Editor](https://supabase.com/dashboard/project/rukppthsduuvsfjynfmw/sql).
+Use the Supabase MCP `execute_sql` tool to run the insert SQL against staging (`wbgdpxogtpqijkqyaeke`) first. Test the widget. Then run against production (`rukppthsduuvsfjynfmw`). Alternatively, use the [staging](https://supabase.com/dashboard/project/wbgdpxogtpqijkqyaeke/sql) / [production](https://supabase.com/dashboard/project/rukppthsduuvsfjynfmw/sql) SQL Editor.
 
 > **Note:** If `bubbleImage` URLs differ between staging and production storage, update the URL before running against each environment.
 
@@ -232,3 +232,6 @@ These origins can make chat requests to staging:
    ```bash
    npm run db:push:prod
    ```
+
+5. **Upsert client records** (if any client data changed):
+   Use the Supabase MCP `execute_sql` tool to run each `insert_*.sql` file against production (`rukppthsduuvsfjynfmw`).

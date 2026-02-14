@@ -52,7 +52,9 @@ app.get('/api/prompt/:clientId', async (req, res) => {
     return res.status(404).json({ error: 'Client not found' })
   }
 
-  const systemPrompt = buildSystemPrompt(client.site_data)
+  const systemPrompt = client.site_data.systemPrompt
+    ? client.site_data.systemPrompt.replace('{{CURRENT_TIME}}', 'Not provided')
+    : buildSystemPrompt(client.site_data)
   res.json({ systemPrompt })
 })
 
@@ -78,7 +80,9 @@ app.post('/api/chat', async (req, res) => {
     return res.status(404).json({ error: 'Client not found' })
   }
 
-  const systemPrompt = buildSystemPrompt(client.site_data)
+  const systemPrompt = client.site_data.systemPrompt
+    ? client.site_data.systemPrompt.replace('{{CURRENT_TIME}}', 'Not provided')
+    : buildSystemPrompt(client.site_data)
   const apiRequest = buildApiRequest({
     systemPrompt,
     userMessage: message,

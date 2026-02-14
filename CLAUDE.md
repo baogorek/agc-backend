@@ -83,8 +83,8 @@ Every client needs three checked-in artifacts (see README for full details):
 npm run widget:deploy:prod    # Deploys chat-widget.js + all client assets to storage
 npm run functions:deploy:prod # Edge function (if changed)
 npm run db:push:prod          # Migrations (if changed)
-# Then run each insert_*.sql against production via SQL Editor or MCP tool
 ```
+Then upsert client records via the Supabase MCP tool (`execute_sql`). Read each `insert_*.sql` file and execute it against both staging (`wbgdpxogtpqijkqyaeke`) and production (`rukppthsduuvsfjynfmw`).
 
 **Embed code for clients:**
 ```html
