@@ -12,7 +12,7 @@
     "db:push:prod": "node scripts/confirm-prod.js node scripts/db-push-prod.js",
     "start": "npx supabase start",
     "stop": "npx supabase stop",
-    "widget:deploy": "npx supabase storage rm ss:///widget/chat-widget.js --experimental --yes & npx supabase storage cp widget/chat-widget.js ss:///widget/chat-widget.js --experimental",
+    "widget:deploy": "node scripts/widget-deploy.js",
     "widget:deploy:prod": "node scripts/confirm-prod.js node scripts/widget-deploy-prod.js"
   },
   "repository": {

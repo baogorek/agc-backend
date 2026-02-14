@@ -66,13 +66,15 @@ Scrape or collect: services, staff, hours, contact info, website pages.
 ### 2. Write the prompt file
 Create `prompts/<clientslug>.txt` with the system prompt. This is the source of truth — the insert SQL file embeds it into `site_data.systemPrompt`.
 
-### 3. Create the insert SQL file
-Create `insert_<clientslug>.sql` with the full INSERT statement. See `insert_agc_client.sql` or `insert_lioncubscookies.sql` for examples. This file should include:
+### 3. Create the upsert SQL file
+Create `insert_<clientslug>.sql` with an `INSERT ... ON CONFLICT (id) DO UPDATE` statement. See existing files for examples. This file should include:
 - All `site_data` fields (business info, systemPrompt, widgetConfig, tools, etc.)
 - `allowed_origins` array (include www/non-www, localhost for dev, any custom domains)
 - Production storage URLs for assets like `bubbleImage`
 
-> **Important:** The insert SQL file is the source of truth for the client record. Never insert client data via the SQL Editor without a corresponding checked-in file. This prevents "hanging data" that exists in a database but can't be reproduced.
+The upsert pattern makes the file idempotent — safe to re-run anytime, whether the client is new or already exists. To update a client, edit the file and re-run it.
+
+> **Important:** The upsert SQL file is the source of truth for the client record. Never modify client data via the SQL Editor without updating the corresponding file first. This prevents "hanging data" that exists in a database but can't be reproduced.
 
 ### 4. Upload assets to storage
 Upload any bubble images or logos to the Supabase storage `widget` bucket in both staging and production.

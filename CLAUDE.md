@@ -67,10 +67,26 @@ contents: [{ role: 'user', parts: [{ text: message }] }]
 ## GCP Service Account
 Credentials stored as Supabase secrets: `GCP_PROJECT_ID`, `GCP_CLIENT_EMAIL`, `GCP_PRIVATE_KEY`
 
-## Adding New Clients
-1. Create site_data JSON (see `insert_agc_client.sql` for example)
-2. INSERT into `clients` table with `allowed_origins` array (include both www and non-www)
-3. Give client the embed code:
+## Adding / Updating Clients
+
+Every client needs three checked-in artifacts (see README for full details):
+1. **Prompt file:** `prompts/<clientslug>.txt`
+2. **Upsert SQL file:** `insert_<clientslug>.sql` (uses `ON CONFLICT DO UPDATE` — safe to re-run)
+3. **Assets:** `assets/clients/<clientslug>/` (bubble images, logos)
+
+**Asset filenames must be globally unique** across all clients (e.g., `agc-bubble-icon.png` not `bubble-icon.png`) because they all upload to the same storage bucket.
+
+**To update a client:** edit the upsert SQL file, then run it against staging and production.
+
+**Production deploy checklist:**
+```bash
+npm run widget:deploy:prod    # Deploys chat-widget.js + all client assets to storage
+npm run functions:deploy:prod # Edge function (if changed)
+npm run db:push:prod          # Migrations (if changed)
+# Then run each insert_*.sql against production via SQL Editor or MCP tool
+```
+
+**Embed code for clients:**
 ```html
 <script src="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/chat-widget.js"
   data-client-id="CLIENT_ID"></script>

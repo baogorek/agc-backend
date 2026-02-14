@@ -1,4 +1,5 @@
--- Insert localmobilevet client
+-- Upsert localmobilevet client
+-- Safe to re-run: inserts if new, updates if exists
 -- Run against staging first, then production (see README "Adding a New Client")
 -- Bubble images must be uploaded to the target project's storage bucket first
 INSERT INTO clients (id, name, phone, email, site_data, plan_type, allowed_origins, active) VALUES (
@@ -86,4 +87,12 @@ INSERT INTO clients (id, name, phone, email, site_data, plan_type, allowed_origi
     'http://127.0.0.1:3000'
   ],
   true
-);
+)
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  phone = EXCLUDED.phone,
+  email = EXCLUDED.email,
+  site_data = EXCLUDED.site_data,
+  plan_type = EXCLUDED.plan_type,
+  allowed_origins = EXCLUDED.allowed_origins,
+  active = EXCLUDED.active;
