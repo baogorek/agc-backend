@@ -52,44 +52,37 @@ npm run functions:serve    # Serve Edge Function locally
 
 ## Adding a New Client
 
+Every client needs **three checked-in artifacts** before going live:
+
+| Artifact | Location | Purpose |
+|----------|----------|---------|
+| Prompt file | `prompts/<clientslug>.txt` | System prompt source of truth |
+| Insert SQL | `insert_<clientslug>.sql` | Reproducible client record |
+| Assets | `assets/clients/<clientslug>/` | Bubble images, logos |
+
 ### 1. Gather business info
 Scrape or collect: services, staff, hours, contact info, website pages.
 
-### 2. Insert into database
-Go to the Supabase SQL Editor ([production](https://supabase.com/dashboard/project/rukppthsduuvsfjynfmw/sql) or [staging](https://supabase.com/dashboard/project/wbgdpxogtpqijkqyaeke/sql)) and run:
+### 2. Write the prompt file
+Create `prompts/<clientslug>.txt` with the system prompt. This is the source of truth — the insert SQL file embeds it into `site_data.systemPrompt`.
 
-```sql
-INSERT INTO clients (id, name, phone, email, site_data, plan_type) VALUES (
-  'clientslug',
-  'Business Name',
-  '(555) 123-4567',
-  'contact@business.com',
-  '{
-    "business": {
-      "name": "Business Name",
-      "description": "What they do...",
-      "phone": "(555) 123-4567",
-      "email": "contact@business.com",
-      "hours": "Mon-Fri 9-5",
-      "serviceArea": "City, State"
-    },
-    "pages": {
-      "home": "https://their-site.com/",
-      "services": "https://their-site.com/services/"
-    },
-    "services": [
-      {"name": "Service 1", "description": "Details..."},
-      {"name": "Service 2", "description": "Details..."}
-    ],
-    "staff": [
-      {"name": "Jane Doe", "credentials": "Title", "role": "Owner"}
-    ]
-  }'::jsonb,
-  'basic'
-);
-```
+### 3. Create the insert SQL file
+Create `insert_<clientslug>.sql` with the full INSERT statement. See `insert_agc_client.sql` or `insert_lioncubscookies.sql` for examples. This file should include:
+- All `site_data` fields (business info, systemPrompt, widgetConfig, tools, etc.)
+- `allowed_origins` array (include www/non-www, localhost for dev, any custom domains)
+- Production storage URLs for assets like `bubbleImage`
 
-### 3. Give client their embed code
+> **Important:** The insert SQL file is the source of truth for the client record. Never insert client data via the SQL Editor without a corresponding checked-in file. This prevents "hanging data" that exists in a database but can't be reproduced.
+
+### 4. Upload assets to storage
+Upload any bubble images or logos to the Supabase storage `widget` bucket in both staging and production.
+
+### 5. Insert into staging, test, then production
+Run the insert SQL in the [staging SQL Editor](https://supabase.com/dashboard/project/wbgdpxogtpqijkqyaeke/sql) first. Test the widget. Then run the same SQL in the [production SQL Editor](https://supabase.com/dashboard/project/rukppthsduuvsfjynfmw/sql).
+
+> **Note:** If `bubbleImage` URLs differ between staging and production storage, update the URL before running against each environment.
+
+### 6. Give client their embed code
 ```html
 <script
   src="https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/chat-widget.js"
