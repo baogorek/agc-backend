@@ -28,6 +28,8 @@ agc-backend/
     seed.sql                   # Test data
   widget/
     chat-widget.js             # Widget source (staging URL, swapped to prod on deploy)
+  scripts/
+    chat-transcripts.py        # Generate customer chat transcripts from CSV exports
   assets/
     clients/<clientslug>/      # Bubble images and other per-client assets
   test/
@@ -127,6 +129,40 @@ SELECT * FROM chat_logs
 WHERE client_id = 'clientslug'
 ORDER BY created_at DESC;
 ```
+
+### Chat Transcripts
+
+Export chat logs to CSV from Supabase, then use `scripts/chat-transcripts.py` to generate readable transcripts. The script automatically filters out developer testing sessions (messages from "Ben", "Hugh", or containing "testing"/"test").
+
+**Step 1:** Go to the [Production SQL Editor](https://supabase.com/dashboard/project/rukppthsduuvsfjynfmw/sql) and run:
+```sql
+SELECT * FROM chat_logs WHERE client_id = 'localmobilevet' ORDER BY created_at DESC;
+```
+Then click **Export to CSV** and save the file.
+
+**Step 2:** Run the script:
+
+```bash
+# Full transcripts of real customer chats
+python scripts/chat-transcripts.py export.csv
+
+# Summary table only
+python scripts/chat-transcripts.py export.csv --summary
+
+# Filter to a specific month
+python scripts/chat-transcripts.py export.csv --month 2026-02
+
+# Filter to a specific client
+python scripts/chat-transcripts.py export.csv --client-id localmobilevet
+
+# Write to a file
+python scripts/chat-transcripts.py export.csv --month 2026-02 -o feb-transcripts.txt
+
+# Include test sessions (for debugging the bot itself)
+python scripts/chat-transcripts.py export.csv --include-test
+```
+
+Requires `pandas` (`pip install pandas`).
 
 ## Environment Variables
 
