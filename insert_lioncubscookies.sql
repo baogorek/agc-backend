@@ -43,7 +43,7 @@ INSERT INTO clients (id, name, phone, email, site_data, plan_type, allowed_origi
         "greeting": "Have you tried our cookie of the week yet? Check out what''s fresh and build a 4-pack!",
         "position": "right",
         "brandColor": "#592e2c",
-        "bubbleImage": "https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/lcc-mobile-logo.svg"
+        "bubbleImage": "https://rukppthsduuvsfjynfmw.supabase.co/storage/v1/object/public/widget/lcc-mobile-logo.png"
       }
     },
     "waitingMessage": "Baking up an answer...|Getting that fresh out of the oven...|Almost ready, just adding sprinkles...|Mixing up something good..."
