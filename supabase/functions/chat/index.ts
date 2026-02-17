@@ -418,8 +418,10 @@ Deno.serve(async (req) => {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
           controller.close()
 
+          const boxAction = collectedActions.find(a => a.name === 'build_box')
+          const cookieCount = boxAction?.args?.cookies?.length || 0
           const fullReply = fullReplyParts.join('')
-            + (collectedActions.length > 0 ? '\n[Built a 4-pack box]' : '')
+            + (collectedActions.length > 0 ? `\n[Built a box of ${cookieCount} cookie${cookieCount !== 1 ? 's' : ''}]` : '')
           supabase.from('chat_logs').insert([
             { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'user', message, origin },
             { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'assistant', message: fullReply, origin }
