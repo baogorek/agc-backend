@@ -100,6 +100,24 @@ Then upsert client records via the Supabase MCP tool (`execute_sql`). Read each 
 | `data-brand-color` | No | Hex accent color (default: `#2563eb`) |
 | `data-greeting` | No | Custom greeting message |
 
+## Lion Cubs Cookies Client
+
+The `lioncubscookies` client has a chatbot widget that integrates with the headless order builder at `~/devl/lioncubscookies/` (deployed to https://lioncubs-order.vercel.app/).
+
+### Key files
+- `prompts/lioncubscookies.txt` — System prompt (all pack sizes, pricing, catering knowledge)
+- `insert_lioncubscookies.sql` — Client record with `build_box` tool definition
+- `widget/chat-widget.js` — `handleBuildCart()` function handles the `build_box` action
+
+### The build_box tool
+The chatbot's `build_box` tool accepts 1-24 cookie names. The widget's `handleBuildCart()` dispatches a `build_box` action that programmatically clicks cookies on the ordering page to fill the box. It uses `clear-and-reclick` approach with staggered delays for larger orders.
+
+### Feature branch
+`feat/lioncubs-progressive-ordering` — Updated for variable-size boxes (1-24 cookies), catering knowledge, and dynamic log messages.
+
+### Integration with the ordering app
+The ordering app encodes cart data as base64url and sends users to `lioncubscookies.com/?load_cart=ENCODED`. The PHP cart receiver on WordPress decodes the payload and calls `WC()->cart->add_to_cart()`. The chatbot's `build_box` action fills the cart on the ordering page UI, then the user clicks checkout which triggers the same `load_cart` flow.
+
 ## Mobile Testing with ngrok
 
 ngrok creates a public URL that tunnels to your local machine, letting you test local code changes on your phone.

@@ -115,6 +115,14 @@ Example embed code with all options:
 </script>
 ```
 
+## Widget Tool Actions
+
+Some clients have tools that trigger UI actions on their page. The widget's `handleAction()` dispatches these based on the tool name and arguments returned by the LLM.
+
+**Example: `lioncubscookies` client** — The `build_box` tool takes an array of 1-24 cookie names. The widget's `handleBuildCart()` function programmatically clicks cookies on the ordering page to fill the user's box. The ordering app (`~/devl/lioncubscookies/`) then encodes the cart as base64url and sends the user to WordPress checkout via `?load_cart=ENCODED`.
+
+Tool actions are defined in each client's `site_data.tools` array in `insert_<clientslug>.sql`.
+
 ## Viewing Chat Logs
 
 Query the `chat_logs` table to see conversations:
