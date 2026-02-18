@@ -700,6 +700,7 @@
         const botMsg = addMessage('', 'bot');
         let fullText = '';
         let hasAction = false;
+        let lastActionType = null;
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -731,6 +732,7 @@
               }
               if (parsed.action) {
                 hasAction = true;
+                lastActionType = parsed.action.type;
                 handleAction(parsed.action);
               }
             } catch {
@@ -743,7 +745,9 @@
           fullText = 'Sorry, I could not get a response. Please try again.';
           renderBotMessage(botMsg, fullText);
         } else if (!fullText && hasAction) {
-          fullText = 'Your box is ready! Check it out and hit checkout when you\'re good to go.';
+          fullText = lastActionType === 'set_logistics'
+            ? 'Done! Your order details have been updated on the page.'
+            : 'Your box is ready! Check it out and hit checkout when you\'re good to go.';
           renderBotMessage(botMsg, fullText);
         }
         conversationHistory.push({ role: 'assistant', content: fullText });
@@ -819,19 +823,22 @@
     window.dispatchEvent(new CustomEvent('agc-action', { detail: action }));
 
     if (action.type === 'build_box' && Array.isArray(action.cookies)) {
-      // Clear existing box by clicking all Remove buttons
+      // Clear existing box by clicking all remove (x) buttons (exclude widget own buttons)
+      const widgetWindow = document.getElementById(ID.window);
       Array.from(document.querySelectorAll('button'))
-        .filter(b => b.textContent.trim() === 'Remove')
+        .filter(b => (b.innerHTML.trim() === '×' || b.textContent.trim() === '×') && !widgetWindow?.contains(b))
         .forEach(b => b.click());
 
       // Wait for framework to process removes, then click cookie cards
+      // Use staggered delays for larger orders
+      const delay = action.cookies.length > 12 ? 60 : 100;
       setTimeout(() => {
         action.cookies.forEach((name, i) => {
           setTimeout(() => {
             const btn = Array.from(document.querySelectorAll('button:not([disabled])'))
               .find(b => b.querySelector('img[alt="' + name + '"]'));
             if (btn) btn.click();
-          }, i * 100);
+          }, i * delay);
         });
       }, 200);
     }
@@ -853,9 +860,55 @@
     return msg;
   }
 
+  // --- Cart intercept: handle ?build_cart= URLs on the WordPress site ---
+  function handleBuildCart() {
+    const params = new URLSearchParams(window.location.search);
+    const cartParam = params.get('build_cart');
+    if (!cartParam) return;
+
+    try {
+      const b64 = cartParam.replace(/-/g, '+').replace(/_/g, '/');
+      const json = decodeURIComponent(escape(atob(b64)));
+      const data = JSON.parse(json);
+
+      if (!data.pack_id || !Array.isArray(data.cookies) || !data.cookies.length) return;
+
+      const formData = new FormData();
+      formData.append('action', 'add_cookies_to_cart');
+      formData.append('pack_id', data.pack_id);
+      data.cookies.forEach(id => formData.append('cookies[]', id));
+      if (data.pickup_time) formData.append('pickup_time', data.pickup_time);
+      if (data.pickup_address) formData.append('pickup_address', data.pickup_address);
+      if (data.order_type) formData.append('order_type', data.order_type);
+
+      // Determine the AJAX URL (same origin)
+      const ajaxUrl = window.location.pathname.startsWith('/worthington/')
+        ? '/worthington/wp-admin/admin-ajax.php'
+        : '/wp-admin/admin-ajax.php';
+
+      fetch(ajaxUrl, { method: 'POST', body: formData, credentials: 'include' })
+        .then(res => res.json())
+        .then(result => {
+          // Redirect to checkout on same site
+          const checkoutPath = window.location.pathname.startsWith('/worthington/')
+            ? '/worthington/checkout/'
+            : '/checkout/';
+          window.location.href = checkoutPath;
+        })
+        .catch(err => {
+          console.error('build_cart failed:', err);
+          // Fall back to homepage
+          window.location.href = '/';
+        });
+    } catch (err) {
+      console.error('build_cart decode failed:', err);
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => { handleBuildCart(); init(); });
   } else {
+    handleBuildCart();
     init();
   }
 })();

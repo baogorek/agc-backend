@@ -418,8 +418,19 @@ Deno.serve(async (req) => {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
           controller.close()
 
-          const fullReply = fullReplyParts.join('')
-            + (collectedActions.length > 0 ? '\n[Built a 4-pack box]' : '')
+          const actionSuffixes: string[] = []
+          const boxAction = collectedActions.find(a => a.name === 'build_box')
+          if (boxAction) {
+            const n = boxAction.args?.cookies?.length || 0
+            actionSuffixes.push(`[Built a box of ${n} cookie${n !== 1 ? 's' : ''}]`)
+          }
+          const logisticsAction = collectedActions.find(a => a.name === 'set_logistics')
+          if (logisticsAction) {
+            const { order_type, location, pickup_date, pickup_time } = logisticsAction.args || {}
+            const parts = [order_type, location, pickup_date, pickup_time].filter(Boolean)
+            actionSuffixes.push(`[Set logistics: ${parts.join(', ')}]`)
+          }
+          const fullReply = fullReplyParts.join('') + (actionSuffixes.length ? '\n' + actionSuffixes.join(' ') : '')
           supabase.from('chat_logs').insert([
             { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'user', message, origin },
             { client_id: clientId, session_id: sessionId, widget_id: widgetId, role: 'assistant', message: fullReply, origin }
