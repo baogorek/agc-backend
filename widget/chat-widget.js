@@ -700,6 +700,7 @@
         const botMsg = addMessage('', 'bot');
         let fullText = '';
         let hasAction = false;
+        let lastActionType = null;
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -731,6 +732,7 @@
               }
               if (parsed.action) {
                 hasAction = true;
+                lastActionType = parsed.action.type;
                 handleAction(parsed.action);
               }
             } catch {
@@ -743,7 +745,9 @@
           fullText = 'Sorry, I could not get a response. Please try again.';
           renderBotMessage(botMsg, fullText);
         } else if (!fullText && hasAction) {
-          fullText = 'Your box is ready! Check it out and hit checkout when you\'re good to go.';
+          fullText = lastActionType === 'set_logistics'
+            ? 'Done! Your order details have been updated on the page.'
+            : 'Your box is ready! Check it out and hit checkout when you\'re good to go.';
           renderBotMessage(botMsg, fullText);
         }
         conversationHistory.push({ role: 'assistant', content: fullText });
@@ -819,9 +823,10 @@
     window.dispatchEvent(new CustomEvent('agc-action', { detail: action }));
 
     if (action.type === 'build_box' && Array.isArray(action.cookies)) {
-      // Clear existing box by clicking all remove (x) buttons
+      // Clear existing box by clicking all remove (x) buttons (exclude widget own buttons)
+      const widgetWindow = document.getElementById(ID.window);
       Array.from(document.querySelectorAll('button'))
-        .filter(b => b.innerHTML.trim() === '×' || b.textContent.trim() === '×')
+        .filter(b => (b.innerHTML.trim() === '×' || b.textContent.trim() === '×') && !widgetWindow?.contains(b))
         .forEach(b => b.click());
 
       // Wait for framework to process removes, then click cookie cards
