@@ -54,7 +54,14 @@
     send: `chat-widget-send-${WIDGET_ID}`
   };
 
-  let SESSION_ID = crypto.randomUUID();
+  function generateUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+  let SESSION_ID = generateUUID();
   let hasGreeted = false;
   let conversationHistory = [];
   let isOpen = false;
@@ -97,7 +104,7 @@
 
   function resetChat() {
     sessionStorage.removeItem(STORAGE_KEY);
-    SESSION_ID = crypto.randomUUID();
+    SESSION_ID = generateUUID();
     conversationHistory = [];
     const messages = document.getElementById(ID.messages);
     if (messages) messages.innerHTML = '';
